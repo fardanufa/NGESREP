@@ -1,4 +1,4 @@
-const CACHE_VERSION = "ngesrep-v4";
+const CACHE_VERSION = "ngesrep-v5";
 
 // Samakan dengan API_BASE_URL di js/config.js.
 const API_BASE_URL = "https://ngesrep-7xy6.vercel.app";
@@ -73,8 +73,10 @@ self.addEventListener("fetch", (event) => {
         (cached) =>
           cached ||
           fetch(request).then((response) => {
-            const copy = response.clone();
-            caches.open(CACHE_VERSION).then((cache) => cache.put(request, copy));
+            if (response.ok) {
+              const copy = response.clone();
+              caches.open(CACHE_VERSION).then((cache) => cache.put(request, copy));
+            }
             return response;
           })
       )
