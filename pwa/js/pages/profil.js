@@ -30,7 +30,7 @@ export async function profil(main) {
     : "";
 
   main.innerHTML = `
-  <div class="flex flex-col w-full px-gutter gap-space-md pb-6">
+  <div class="flex flex-col w-full px-gutter md:px-6 max-w-4xl mx-auto gap-space-md pb-6">
     <div class="flex items-center gap-space-xs pt-space-xs">
       <span class="material-symbols-outlined text-primary text-[20px]">badge</span>
       <h1 class="font-headline-md text-headline-md text-on-surface">Profil &amp; Tentang</h1>
@@ -111,7 +111,7 @@ export async function profil(main) {
         <span class="material-symbols-outlined text-primary text-[20px]">code</span>
         <h3 class="font-headline-sm text-headline-sm text-on-surface">Teknologi Aplikasi</h3>
       </div>
-      <div class="grid grid-cols-2 gap-space-sm pt-space-xs">${TECH.map(techItem).join("")}</div>
+      <div class="grid grid-cols-2 md:grid-cols-3 gap-space-sm pt-space-xs">${TECH.map(techItem).join("")}</div>
       <div class="flex items-center gap-space-sm p-space-sm rounded-lg bg-secondary-container/30 text-on-secondary-container mt-1">
         <div class="w-7 h-7 rounded-md bg-secondary-container flex items-center justify-center shrink-0">
           <span class="material-symbols-outlined text-[18px] text-on-secondary-container">install_mobile</span>

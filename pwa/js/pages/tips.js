@@ -40,7 +40,7 @@ function card(tip) {
 
 export async function tips(main) {
   main.innerHTML = `
-  <div class="px-margin flex flex-col gap-space-lg pb-space-xl">
+  <div class="w-full px-margin md:px-6 lg:px-8 max-w-6xl mx-auto flex flex-col gap-space-lg pb-space-xl">
     <section class="flex flex-col gap-space-xs pt-space-md">
       <div class="inline-flex items-center gap-space-xs">
         <span class="material-symbols-outlined text-primary text-[20px]" style="font-variation-settings: 'FILL' 1;">tips_and_updates</span>
@@ -61,7 +61,7 @@ export async function tips(main) {
       </div>
     </div>
 
-    <div id="tips-list" class="flex flex-col gap-space-md">${skeleton}</div>
+    <div id="tips-list" class="flex flex-col gap-space-md md:grid md:grid-cols-2 xl:grid-cols-3">${skeleton}</div>
   </div>`;
 
   const list = main.querySelector("#tips-list");

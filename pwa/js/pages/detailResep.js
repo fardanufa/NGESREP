@@ -29,8 +29,8 @@ function view(recipe) {
     .filter(Boolean);
 
   return `
-  <div class="flex flex-col w-full pb-space-lg">
-    <div class="relative w-full px-space-md pt-space-xs">
+  <div class="flex flex-col w-full pb-space-lg md:max-w-5xl md:mx-auto">
+    <div class="relative w-full px-space-md pt-space-xs md:px-8">
       <div class="relative w-full aspect-[4/3] rounded-3xl overflow-hidden shadow-lg bg-surface-container">
         ${imgTag(recipe.image_url, recipe.name, "w-full h-full object-cover")}
         <div class="absolute inset-0 bg-gradient-to-t from-inverse-surface/80 via-transparent to-black/20"></div>
@@ -53,7 +53,7 @@ function view(recipe) {
       </div>
     </div>
 
-    <div class="relative flex flex-col w-full -mt-4 bg-surface rounded-t-3xl px-space-md pt-5 z-20">
+    <div class="relative flex flex-col w-full -mt-4 bg-surface rounded-t-3xl px-space-md pt-5 z-20 md:px-8 md:pt-8">
       <div class="w-12 h-1 bg-surface-variant rounded-full mx-auto mb-4"></div>
 
       <div class="flex flex-col gap-1 mb-4">

@@ -11,14 +11,14 @@ const emptyState = stateBox(
 
 function card(item) {
   return `
-  <a href="#/resep/${esc(item.id)}" class="bg-surface-container-lowest rounded-2xl p-3 shadow-sm flex items-center justify-between gap-3 active:scale-[0.99] transition-transform">
+  <a href="#/resep/${esc(item.id)}" class="min-w-0 bg-surface-container-lowest rounded-2xl p-3 shadow-sm flex items-center justify-between gap-3 active:scale-[0.99] transition-transform">
     <div class="flex items-center gap-3 min-w-0 flex-1">
       <div class="w-[76px] h-[76px] rounded-xl overflow-hidden bg-surface-container shrink-0">
         ${imgTag(item.image_url, item.name, "w-full h-full object-cover")}
       </div>
       <div class="flex flex-col min-w-0 flex-1 gap-1">
         <span class="font-headline-sm text-headline-sm text-on-surface truncate">${esc(item.name)}</span>
-        <div class="flex items-center gap-2 text-on-surface-variant font-body-sm text-body-sm">
+        <div class="flex flex-wrap items-center gap-2 text-on-surface-variant font-body-sm text-body-sm">
           <span class="flex items-center gap-0.5">
             <span class="material-symbols-outlined text-[14px]">schedule</span>${Number(item.cook_time) || 0} mnt
           </span>
@@ -46,7 +46,7 @@ export async function favorit(main) {
         <span class="material-symbols-outlined text-[22px]" style="font-variation-settings: 'FILL' 1;">favorite</span>
       </div>
     </section>
-    <div id="favorites-list"></div>
+    <div id="favorites-list" class="grid gap-space-sm md:grid-cols-2"></div>
   </div>`;
 
   const container = main.querySelector("#favorites-list");
@@ -59,7 +59,7 @@ export async function favorit(main) {
       return;
     }
 
-    container.innerHTML = `<div class="flex flex-col gap-space-sm">${favorites.map(card).join("")}</div>`;
+    container.innerHTML = favorites.map(card).join("");
 
     container.querySelectorAll("[data-remove]").forEach((button) => {
       button.addEventListener("click", (event) => {

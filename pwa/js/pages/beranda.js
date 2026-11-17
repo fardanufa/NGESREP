@@ -56,7 +56,7 @@ export async function beranda(main) {
       <h2 class="font-headline-sm text-headline-sm text-on-surface font-bold">Semua Resep</h2>
       <p class="font-body-sm text-body-sm text-on-surface-variant">Daftar resep praktis dan hemat untuk anak kos</p>
     </div>
-    <div id="recipe-list" class="flex flex-col gap-space-md">${skeletonList(3)}</div>
+    <div id="recipe-list" class="flex flex-col gap-space-md md:grid md:grid-cols-2 xl:grid-cols-3">${skeletonList(3)}</div>
   </section>`;
 
   const list = main.querySelector("#recipe-list");

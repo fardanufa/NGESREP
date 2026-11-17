@@ -1,4 +1,4 @@
-const CACHE_VERSION = "ngesrep-v5";
+const CACHE_VERSION = "ngesrep-v7";
 
 // Samakan dengan API_BASE_URL di js/config.js.
 const API_BASE_URL = "https://ngesrep-7xy6.vercel.app";

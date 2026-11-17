@@ -28,12 +28,12 @@ function logoHTML() {
 
 function drawHeader(route) {
   if (route.tab) {
-    header.innerHTML = `<div class="h-16 px-gutter max-w-[480px] mx-auto flex items-center justify-between">${logoHTML()}</div>`;
+    header.innerHTML = `<div class="h-16 px-gutter md:px-6 max-w-[480px] md:max-w-6xl mx-auto flex items-center justify-between">${logoHTML()}</div>`;
     return;
   }
 
   header.innerHTML = `
-    <div class="h-16 px-gutter max-w-[480px] mx-auto flex items-center gap-2">
+    <div class="h-16 px-gutter md:px-6 max-w-[480px] md:max-w-6xl mx-auto flex items-center gap-2">
       <button type="button" data-back aria-label="Kembali" class="w-11 h-11 flex items-center justify-center rounded-full text-on-surface hover:bg-surface-container transition-colors">
         <span class="material-symbols-outlined text-[24px]">arrow_back</span>
       </button>
