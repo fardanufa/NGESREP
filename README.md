@@ -33,7 +33,7 @@ Akronim: **N**ikmat, **G**ampang, **E**konomis, **S**ehat — **RE**sep **P**rak
 | Frontend | HTML, JavaScript murni (ES Modules), Tailwind CSS v3.4 (dikompilasi) |
 | Backend | Node.js, Express 5, `@supabase/supabase-js` |
 | Database | Supabase (PostgreSQL) |
-| Hosting | API: Vercel, PWA: Netlify atau GitHub Pages |
+| Hosting | API dan PWA: Vercel |
 
 ## Arsitektur
 
@@ -152,6 +152,8 @@ ngesrep/
 | Detail Tips | Favorit | Profil |
 |---|---|---|
 | <img src="docs/screenshots/detail-tips.png" width="240"> | <img src="docs/screenshots/favorit.png" width="240"> | <img src="docs/screenshots/profil.png" width="240"> |
+
+Kredit dan lisensi foto resep/tips: [docs/kredit-foto.md](docs/kredit-foto.md).
 
 ## Pembuat
 
