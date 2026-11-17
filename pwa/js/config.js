@@ -1,5 +1,5 @@
-// Konfigurasi aplikasi. Ganti API_BASE_URL dengan URL Vercel saat deploy.
-export const API_BASE_URL = "http://localhost:3000";
+// Konfigurasi aplikasi. Samakan dengan API_BASE_URL di sw.js.
+export const API_BASE_URL = "https://ngesrep-7xy6.vercel.app";
 
 export const PROFILE = {
   nama: "Fardanu Fibri Alfarizi",
