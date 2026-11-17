@@ -90,28 +90,34 @@ npm run build:css          # menghasilkan css/style.css
 Sajikan folder `pwa/` lewat server statis (contoh: ekstensi Live Server, atau
 `npx serve .`), lalu buka `http://localhost:8080`.
 
-Ubah `API_BASE_URL` di `pwa/js/config.js` (dan konstanta yang sama di `pwa/sw.js`) bila API
-tidak berjalan di `http://localhost:3000`.
+`API_BASE_URL` di `pwa/js/config.js` dan `pwa/sw.js` saat ini menunjuk ke API produksi. Untuk
+mengembangkan dengan API lokal, ubah keduanya ke `http://localhost:3000`.
 
 ## Deploy
 
-1. **API ke Vercel:** import repository, set Root Directory `api`, isi environment variable
-   `SUPABASE_URL` dan `SUPABASE_KEY`. Catat URL produksi.
-2. Ganti `API_BASE_URL` di `pwa/js/config.js` dan `pwa/sw.js` dengan URL Vercel tersebut.
-3. **PWA ke Netlify:** base directory `pwa`, publish directory `pwa`, build command
-   `npm run build:css`. Alternatif: GitHub Pages dari folder `pwa`.
-4. Buka URL PWA di HP, uji install dan mode offline.
+Aplikasi ini sudah ter-deploy dan berjalan:
 
 | Layanan | URL |
 |---|---|
-| API (Vercel) | TODO_ISI_SENDIRI |
-| PWA (Netlify / GitHub Pages) | TODO_ISI_SENDIRI |
+| PWA | https://ngesrep-pwa.vercel.app |
+| API (Vercel) | https://ngesrep-7xy6.vercel.app |
+
+Cara deploy ulang dari nol:
+
+1. **API ke Vercel:** import repository, set Root Directory `api`, isi environment variable
+   `SUPABASE_URL` dan `SUPABASE_KEY` (pakai service role key karena RLS aktif dan API yang
+   menangani tulis). Catat URL produksi.
+2. Ganti `API_BASE_URL` di `pwa/js/config.js` dan `pwa/sw.js` dengan URL Vercel tersebut.
+3. **PWA ke Vercel:** import repository lagi, set Root Directory `pwa`, Framework Preset `Other`,
+   tanpa build command (CSS sudah dikompilasi dan ikut di-commit).
+4. Buka URL PWA di HP, uji install dan mode offline.
 
 ## Struktur Folder
 
 ```
 ngesrep/
 ├── README.md
+├── docs/screenshots/        # tangkapan layar 6 halaman
 ├── design/                  # referensi visual hasil Google Stitch
 ├── api/
 │   ├── sql/                 # schema.sql dan seed.sql
@@ -139,7 +145,13 @@ ngesrep/
 
 ## Screenshot
 
-TODO_ISI_SENDIRI (Beranda, Detail Resep, Tips, Detail Tips, Favorit, Profil).
+| Beranda | Detail Resep | Tips Dapur |
+|---|---|---|
+| <img src="docs/screenshots/beranda.png" width="240"> | <img src="docs/screenshots/detail-resep.png" width="240"> | <img src="docs/screenshots/tips.png" width="240"> |
+
+| Detail Tips | Favorit | Profil |
+|---|---|---|
+| <img src="docs/screenshots/detail-tips.png" width="240"> | <img src="docs/screenshots/favorit.png" width="240"> | <img src="docs/screenshots/profil.png" width="240"> |
 
 ## Pembuat
 
