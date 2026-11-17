@@ -14,11 +14,20 @@ async function request(path) {
       throw Object.assign(new Error(body.error || "Gagal memuat data"), { status: res.status });
     }
 
-    localStorage.setItem(CACHE_PREFIX + path, JSON.stringify(body));
+    try {
+      localStorage.setItem(CACHE_PREFIX + path, JSON.stringify(body));
+    } catch {
+      // Cache is optional; a successful online read must still render.
+    }
     return body;
   } catch (err) {
     // Hanya kegagalan jaringan (bukan 404/500) yang memakai data tersimpan.
-    const saved = localStorage.getItem(CACHE_PREFIX + path);
+    let saved;
+    try {
+      saved = localStorage.getItem(CACHE_PREFIX + path);
+    } catch {
+      // Storage may be disabled; propagate the original network error.
+    }
     if (err.status === undefined && saved) {
       toast("Kamu sedang offline. Menampilkan data tersimpan.");
       return JSON.parse(saved);

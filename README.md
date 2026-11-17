@@ -59,13 +59,18 @@ PWA tidak mengakses Supabase secara langsung. Semua data lewat API sendiri.
 | POST / PUT / DELETE | `/api/tips` | CRUD tips |
 
 Format sukses: JSON langsung (array/objek). Format error: `{ "error": "pesan" }`.
+Semua `POST`, `PUT`, dan `DELETE` memerlukan header `Authorization: Bearer <ADMIN_API_KEY>`.
+PWA tidak menyimpan atau mengirim kunci admin; gunakan hanya dari lingkungan tepercaya seperti
+Postman. Jika `ADMIN_API_KEY` belum disetel, endpoint tulis akan mengembalikan `503`.
 
 ## Cara Menjalankan Lokal
 
 ### 1. Database
 
 1. Buat proyek di [Supabase](https://supabase.com).
-2. Buka SQL Editor, jalankan `api/sql/schema.sql`, lalu `api/sql/seed.sql`.
+2. Buka SQL Editor, jalankan `api/sql/schema.sql`, lalu jalankan `api/sql/seed.sql` satu kali.
+   Schema mengaktifkan RLS tanpa memberi akses tabel langsung ke peran publik; akses aplikasi
+   dilakukan melalui API server.
 
 ### 2. API
 
@@ -73,11 +78,13 @@ Format sukses: JSON langsung (array/objek). Format error: `{ "error": "pesan" }`
 cd api
 npm install
 copy .env.example .env     # Windows (Linux/macOS: cp .env.example .env)
-# isi SUPABASE_URL dan SUPABASE_KEY di .env
+# isi SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, dan ADMIN_API_KEY di .env
 npm run dev
 ```
 
 API jalan di `http://localhost:3000`. Cek dengan membuka `http://localhost:3000/api/recipes`.
+Untuk request tulis lokal, kirim header `Authorization: Bearer <ADMIN_API_KEY>`. Jangan masukkan
+kunci service-role atau admin ke kode PWA, Git, atau browser.
 
 ### 3. PWA
 
@@ -105,8 +112,9 @@ Aplikasi ini sudah ter-deploy dan berjalan:
 Cara deploy ulang dari nol:
 
 1. **API ke Vercel:** import repository, set Root Directory `api`, isi environment variable
-   `SUPABASE_URL` dan `SUPABASE_KEY` (pakai service role key karena RLS aktif dan API yang
-   menangani tulis). Catat URL produksi.
+   `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, dan `ADMIN_API_KEY`. Buat admin key acak dan
+   simpan hanya di environment API; jangan set di project PWA. Tanpa admin key, tulis akan
+   gagal tertutup dengan status `503`. Catat URL produksi.
 2. Ganti `API_BASE_URL` di `pwa/js/config.js` dan `pwa/sw.js` dengan URL Vercel tersebut.
 3. **PWA ke Vercel:** import repository lagi, set Root Directory `pwa`, Framework Preset `Other`,
    tanpa build command (CSS sudah dikompilasi dan ikut di-commit).

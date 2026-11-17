@@ -1,4 +1,4 @@
-const CACHE_VERSION = "ngesrep-v7";
+const CACHE_VERSION = "ngesrep-v8";
 
 // Samakan dengan API_BASE_URL di js/config.js.
 const API_BASE_URL = "https://ngesrep-7xy6.vercel.app";
@@ -7,6 +7,7 @@ const SHELL = [
   "./",
   "index.html",
   "css/style.css",
+  "css/fonts.css",
   "manifest.json",
   "js/app.js",
   "js/api.js",
@@ -25,7 +26,17 @@ const SHELL = [
   "icons/icon-maskable-512.png",
   "images/logo-full.png",
   "images/placeholder.svg",
+  "fonts/plus-jakarta-sans.woff2",
+  "fonts/material-symbols.woff2",
 ];
+
+async function cacheResponse(request, response) {
+  try {
+    await (await caches.open(CACHE_VERSION)).put(request, response);
+  } catch {
+    // A cache quota or storage error must not fail a successful network response.
+  }
+}
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -56,12 +67,11 @@ self.addEventListener("fetch", (event) => {
   if (request.url.startsWith(API_BASE_URL)) {
     event.respondWith(
       fetch(request)
-        .then((response) => {
-          const copy = response.clone();
-          caches.open(CACHE_VERSION).then((cache) => cache.put(request, copy));
+        .then(async (response) => {
+          if (response.ok) await cacheResponse(request, response.clone());
           return response;
         })
-        .catch(() => caches.match(request))
+        .catch(async () => (await caches.match(request)) || Response.error())
     );
     return;
   }
@@ -69,34 +79,13 @@ self.addEventListener("fetch", (event) => {
   // Gambar: cache-first.
   if (url.pathname.includes("/images/")) {
     event.respondWith(
-      caches.match(request).then(
-        (cached) =>
-          cached ||
-          fetch(request).then((response) => {
-            if (response.ok) {
-              const copy = response.clone();
-              caches.open(CACHE_VERSION).then((cache) => cache.put(request, copy));
-            }
-            return response;
-          })
-      )
-    );
-    return;
-  }
-
-  // Google Fonts: stale-while-revalidate.
-  if (url.hostname === "fonts.googleapis.com" || url.hostname === "fonts.gstatic.com") {
-    event.respondWith(
-      caches.match(request).then((cached) => {
-        const network = fetch(request)
-          .then((response) => {
-            const copy = response.clone();
-            caches.open(CACHE_VERSION).then((cache) => cache.put(request, copy));
-            return response;
-          })
-          .catch(() => cached);
-        return cached || network;
-      })
+      (async () => {
+        const cached = await caches.match(request);
+        if (cached) return cached;
+        const response = await fetch(request);
+        if (response.ok) await cacheResponse(request, response.clone());
+        return response;
+      })()
     );
     return;
   }
@@ -110,15 +99,13 @@ self.addEventListener("fetch", (event) => {
   // Aset app shell lain (css, js, ikon): cache-first.
   if (url.origin === location.origin) {
     event.respondWith(
-      caches.match(request).then(
-        (cached) =>
-          cached ||
-          fetch(request).then((response) => {
-            const copy = response.clone();
-            caches.open(CACHE_VERSION).then((cache) => cache.put(request, copy));
-            return response;
-          })
-      )
+      (async () => {
+        const cached = await caches.match(request);
+        if (cached) return cached;
+        const response = await fetch(request);
+        if (response.ok) await cacheResponse(request, response.clone());
+        return response;
+      })()
     );
   }
 });

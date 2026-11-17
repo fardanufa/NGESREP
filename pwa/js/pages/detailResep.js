@@ -144,11 +144,14 @@ function mount(main, recipe) {
 }
 
 export async function detailResep(main, id) {
+  const isCurrentRoute = () => location.hash === `#/resep/${id}`;
   try {
     const recipe = await getRecipe(id);
+    if (!isCurrentRoute()) return;
     main.innerHTML = view(recipe);
     mount(main, recipe);
   } catch (err) {
+    if (!isCurrentRoute()) return;
     if (err.status === 404) {
       main.innerHTML = `<div class="px-gutter pt-space-md">${stateBox(
         "ramen_dining",

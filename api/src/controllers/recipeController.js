@@ -1,4 +1,5 @@
 import * as model from "../models/recipeModel.js";
+import { isNonNegativeInteger } from "../validation.js";
 
 // Field yang boleh diisi lewat POST/PUT.
 const FIELDS = [
@@ -20,6 +21,12 @@ function pickFields(body) {
   return data;
 }
 
+function invalidNumberField(payload) {
+  return ["cost_estimate", "cook_time"].find(
+    (field) => payload[field] !== undefined && !isNonNegativeInteger(payload[field])
+  );
+}
+
 export async function list(req, res) {
   const { data, error } = await model.findAll({
     categoryId: req.query.category_id,
@@ -38,9 +45,11 @@ export async function detail(req, res) {
 
 export async function create(req, res) {
   const payload = pickFields(req.body);
-  if (!String(payload.name ?? "").trim()) {
+  if (typeof payload.name !== "string" || !payload.name.trim()) {
     return res.status(400).json({ error: "Field name wajib diisi" });
   }
+  const invalid = invalidNumberField(payload);
+  if (invalid) return res.status(400).json({ error: `Field ${invalid} harus bilangan bulat 0 atau lebih` });
 
   const { data, error } = await model.create(payload);
   if (error) return res.status(500).json({ error: error.message });
@@ -52,9 +61,11 @@ export async function update(req, res) {
   if (!Object.keys(payload).length) {
     return res.status(400).json({ error: "Tidak ada field yang diperbarui" });
   }
-  if (payload.name !== undefined && !String(payload.name).trim()) {
+  if (payload.name !== undefined && (typeof payload.name !== "string" || !payload.name.trim())) {
     return res.status(400).json({ error: "Field name tidak boleh kosong" });
   }
+  const invalid = invalidNumberField(payload);
+  if (invalid) return res.status(400).json({ error: `Field ${invalid} harus bilangan bulat 0 atau lebih` });
 
   const { data, error } = await model.update(req.params.id, payload);
   if (error) return res.status(500).json({ error: error.message });

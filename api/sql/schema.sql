@@ -26,3 +26,7 @@ create table tips (
   image_url text,
   created_at timestamptz default now()
 );
+
+alter table categories enable row level security;
+alter table recipes enable row level security;
+alter table tips enable row level security;

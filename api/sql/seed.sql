@@ -1,4 +1,5 @@
--- Data awal NGESREP: 5 kategori, 15 resep, 6 tips.
+-- Seed satu kali untuk database baru: 5 kategori, 15 resep, 6 tips.
+-- Jangan jalankan ulang; skrip ini tidak idempoten.
 -- Jalankan setelah schema.sql di Supabase SQL Editor.
 
 insert into categories (name) values

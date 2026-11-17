@@ -63,6 +63,7 @@ function view(tip, others) {
 }
 
 export async function detailTips(main, id) {
+  const isCurrentRoute = () => location.hash === `#/tips/${id}`;
   try {
     const tip = await getTip(id);
     let others = [];
@@ -72,8 +73,10 @@ export async function detailTips(main, id) {
     } catch {
       // Daftar tips lain tidak wajib; tips utama tetap ditampilkan.
     }
+    if (!isCurrentRoute()) return;
     main.innerHTML = view(tip, others);
   } catch (err) {
+    if (!isCurrentRoute()) return;
     if (err.status === 404) {
       main.innerHTML = `<div class="px-gutter pt-space-md">${stateBox(
         "search_off",
