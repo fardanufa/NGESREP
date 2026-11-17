@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 250" width="400" height="250" role="img" aria-label="Gambar belum tersedia">
+  <rect width="400" height="250" fill="#fff1eb"/>
+  <path d="M120 130h160c0 42-35.8 70-80 70s-80-28-80-70z" fill="#e2bfb2"/>
+  <rect x="112" y="118" width="176" height="10" rx="5" fill="#e2bfb2"/>
+  <circle cx="200" cy="92" r="9" fill="#e2bfb2"/>
+  <circle cx="232" cy="78" r="6" fill="#e2bfb2" opacity=".7"/>
+  <circle cx="168" cy="78" r="5" fill="#e2bfb2" opacity=".5"/>
+  <text x="200" y="228" text-anchor="middle" font-family="Plus Jakarta Sans, Segoe UI, system-ui, sans-serif" font-size="14" font-weight="600" fill="#8e7166">Gambar belum tersedia</text>
+</svg>
