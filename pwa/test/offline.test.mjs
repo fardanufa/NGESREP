@@ -12,7 +12,8 @@ test("only good data survives offline; a confirmed deletion removes it", async (
   Object.defineProperty(globalThis, "localStorage", { configurable: true, value: {
     getItem: k => data.get(k) ?? null, setItem: (k, v) => data.set(k, v), removeItem: k => data.delete(k),
   } });
-  globalThis.document = { createElement: () => ({}), body: { appendChild() {} } };
+  const status = { replaceChildren(el) { this.message = el.textContent; } };
+  globalThis.document = { createElement: () => ({}), getElementById: id => id === "app-status" && status };
   t.mock.method(globalThis, "setTimeout", () => 0);
   const good = await getRecipes();
   for (const res of [new Response("maintenance"), Response.json({}), Response.json([{}]), new Response(null, { status: 503 })]) {
@@ -22,6 +23,7 @@ test("only good data survives offline; a confirmed deletion removes it", async (
   const offline = async () => { throw new Error("offline"); };
   fetch.mock.mockImplementation(offline);
   assert.deepEqual(await getRecipes(), good);
+  assert.match(status.message, /offline/);
   for (const status of [404, 410]) {
     fetch.mock.mockImplementation(async () => Response.json(good[0]));
     await getRecipe("r");

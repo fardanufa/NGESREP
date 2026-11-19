@@ -13,15 +13,15 @@ export function imgSrc(path) {
 }
 
 // Gambar dengan cadangan placeholder bila gagal dimuat.
-export function imgTag(path, alt, className = "") {
-  return `<img src="${esc(imgSrc(path))}" alt="${esc(alt)}" loading="lazy" class="${className}" onerror="this.onerror=null;this.src='images/placeholder.svg'">`;
+export function imgTag(path, alt, className = "", loading = "lazy") {
+  return `<img src="${esc(imgSrc(path))}" alt="${esc(alt)}" loading="${loading}" class="${className}" onerror="this.onerror=null;this.src='images/placeholder.svg'">`;
 }
 
 export function skeletonList(count = 3) {
   return Array.from(
     { length: count },
     () => `
-    <div class="animate-pulse bg-surface-container-lowest rounded-2xl overflow-hidden shadow-sm">
+    <div class="motion-safe:animate-pulse bg-surface-container-lowest rounded-2xl overflow-hidden shadow-sm">
       <div class="w-full aspect-[16/10] bg-surface-container"></div>
       <div class="p-space-md flex flex-col gap-2">
         <div class="h-3 w-20 bg-surface-container rounded"></div>
@@ -51,10 +51,11 @@ export function retryButton() {
 }
 
 export function toast(message) {
+  const status = document.getElementById("app-status");
   const el = document.createElement("div");
   el.className =
     "fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] w-[90%] max-w-[400px] rounded-full bg-inverse-surface text-inverse-on-surface font-label-md text-label-md px-4 py-3 shadow-lg text-center";
   el.textContent = message;
-  document.body.appendChild(el);
+  status.replaceChildren(el);
   setTimeout(() => el.remove(), 3500);
 }

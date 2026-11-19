@@ -4,7 +4,7 @@ import { esc, imgTag, stateBox, retryButton } from "../ui.js";
 const skeleton = Array.from(
   { length: 3 },
   () => `
-  <div class="animate-pulse bg-surface-container-lowest rounded-2xl p-space-md flex gap-space-md items-center shadow-sm">
+  <div class="motion-safe:animate-pulse bg-surface-container-lowest rounded-2xl p-space-md flex gap-space-md items-center shadow-sm">
     <div class="w-24 h-24 rounded-xl bg-surface-container shrink-0"></div>
     <div class="flex-1 flex flex-col gap-2">
       <div class="h-4 w-2/3 bg-surface-container rounded"></div>
@@ -51,10 +51,10 @@ export async function tips(main) {
     </section>
 
     <div class="relative w-full">
-      <div class="w-full h-12 bg-surface-container-lowest rounded-full shadow-sm flex items-center px-space-md gap-space-sm">
+      <div class="w-full h-12 bg-surface-container-lowest rounded-full shadow-sm flex items-center px-space-md gap-space-sm focus-within:outline focus-within:outline-2 focus-within:outline-primary">
         <span class="material-symbols-outlined text-outline text-[22px]">search</span>
         <input id="tips-search" type="search" aria-label="Cari tips" placeholder="Cari trik sayur, rice cooker, kulkas..."
-          class="w-full bg-transparent text-on-surface placeholder:text-outline text-body-md font-body-md focus:outline-none">
+          class="w-full bg-transparent text-on-surface placeholder:text-on-surface-variant text-body-md font-body-md focus:outline-none">
         <button type="button" id="tips-clear" aria-label="Hapus pencarian" class="hidden text-outline hover:text-on-surface p-1 rounded-full">
           <span class="material-symbols-outlined text-[18px]">close</span>
         </button>

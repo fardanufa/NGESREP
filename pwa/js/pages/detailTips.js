@@ -29,7 +29,7 @@ function view(tip) {
   <div class="flex flex-col w-full pb-safe md:max-w-4xl md:mx-auto">
     <div class="flex flex-col px-gutter pt-space-sm gap-space-md pb-space-lg">
       <div class="relative w-full aspect-[16/10] rounded-2xl overflow-hidden shadow-sm bg-surface-container">
-        ${imgTag(tip.image_url, tip.title, "w-full h-full object-cover")}
+        ${imgTag(tip.image_url, tip.title, "w-full h-full object-cover", "eager")}
       </div>
 
       <h1 class="font-headline-lg text-headline-lg text-on-surface font-extrabold tracking-tight">${esc(tip.title)}</h1>

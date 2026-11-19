@@ -21,24 +21,25 @@
   <nav id="bottom-nav" class="hidden fixed bottom-0 w-full z-50 pb-safe bg-surface/90 backdrop-blur-xl shadow-[0_-4px_20px_rgba(40,24,15,0.05)]">
     <div class="h-16 px-gutter max-w-[480px] md:max-w-6xl mx-auto flex items-center justify-around md:justify-center md:gap-8">
       <a href="#/beranda" data-tab="beranda" class="flex flex-col items-center justify-center min-w-[64px] min-h-[44px] px-space-sm py-space-xs rounded-full text-on-surface-variant transition-colors">
-        <span class="material-symbols-outlined text-[24px]">soup_kitchen</span>
+        <span aria-hidden="true" class="material-symbols-outlined text-[24px]">soup_kitchen</span>
         <span class="font-label-md text-label-md">Beranda</span>
       </a>
       <a href="#/tips" data-tab="tips" class="flex flex-col items-center justify-center min-w-[64px] min-h-[44px] px-space-sm py-space-xs rounded-full text-on-surface-variant transition-colors">
-        <span class="material-symbols-outlined text-[24px]">lightbulb</span>
+        <span aria-hidden="true" class="material-symbols-outlined text-[24px]">lightbulb</span>
         <span class="font-label-md text-label-md">Tips</span>
       </a>
       <a href="#/favorit" data-tab="favorit" class="flex flex-col items-center justify-center min-w-[64px] min-h-[44px] px-space-sm py-space-xs rounded-full text-on-surface-variant transition-colors">
-        <span class="material-symbols-outlined text-[24px]">favorite</span>
+        <span aria-hidden="true" class="material-symbols-outlined text-[24px]">favorite</span>
         <span class="font-label-md text-label-md">Favorit</span>
       </a>
       <a href="#/profil" data-tab="profil" class="flex flex-col items-center justify-center min-w-[64px] min-h-[44px] px-space-sm py-space-xs rounded-full text-on-surface-variant transition-colors">
-        <span class="material-symbols-outlined text-[24px]">account_circle</span>
+        <span aria-hidden="true" class="material-symbols-outlined text-[24px]">account_circle</span>
         <span class="font-label-md text-label-md">Profil</span>
       </a>
     </div>
   </nav>
 
+  <div id="app-status" role="status" aria-atomic="true"></div>
   <script type="module" src="js/app.js"></script>
 </body>
 </html>

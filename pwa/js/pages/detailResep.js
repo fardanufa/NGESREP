@@ -32,7 +32,7 @@ function view(recipe) {
   <div class="flex flex-col w-full pb-space-lg md:max-w-5xl md:mx-auto">
     <div class="relative w-full px-space-md pt-space-xs md:px-8">
       <div class="relative w-full aspect-[4/3] rounded-3xl overflow-hidden shadow-lg bg-surface-container">
-        ${imgTag(recipe.image_url, recipe.name, "w-full h-full object-cover")}
+        ${imgTag(recipe.image_url, recipe.name, "w-full h-full object-cover", "eager")}
         <div class="absolute inset-0 bg-gradient-to-t from-inverse-surface/80 via-transparent to-black/20"></div>
 
         <div class="absolute top-3 right-3 z-10">
@@ -57,7 +57,7 @@ function view(recipe) {
       <div class="w-12 h-1 bg-surface-variant rounded-full mx-auto mb-4"></div>
 
       <div class="flex flex-col gap-1 mb-4">
-        <h2 class="font-headline-lg text-headline-lg text-on-surface tracking-tight">${esc(recipe.name)}</h2>
+        <h1 class="font-headline-lg text-headline-lg text-on-surface tracking-tight">${esc(recipe.name)}</h1>
         <p class="font-body-md text-body-md text-on-surface-variant leading-relaxed">${esc(recipe.description || "")}</p>
       </div>
 
@@ -76,7 +76,7 @@ function view(recipe) {
         <div class="flex items-center justify-between mb-3">
           <div class="flex items-center gap-2">
             <span class="w-2.5 h-2.5 rounded-full bg-primary"></span>
-            <h3 class="font-headline-sm text-headline-sm text-on-surface">Bahan-Bahan</h3>
+            <h2 class="font-headline-sm text-headline-sm text-on-surface">Bahan-Bahan</h2>
           </div>
           <span data-counter class="font-label-md text-label-md text-on-surface-variant bg-surface-container px-2.5 py-0.5 rounded-full">0 / ${ingredients.length} siap</span>
         </div>
@@ -86,7 +86,7 @@ function view(recipe) {
       <div class="flex flex-col mb-6">
         <div class="flex items-center gap-2 mb-4">
           <span class="w-2.5 h-2.5 rounded-full bg-primary-container"></span>
-          <h3 class="font-headline-sm text-headline-sm text-on-surface">Langkah Memasak</h3>
+          <h2 class="font-headline-sm text-headline-sm text-on-surface">Langkah Memasak</h2>
         </div>
         <div class="flex flex-col gap-3.5">
           ${steps

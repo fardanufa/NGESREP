@@ -37,7 +37,7 @@ function drawHeader(route) {
       <button type="button" data-back aria-label="Kembali" class="w-11 h-11 flex items-center justify-center rounded-full text-on-surface hover:bg-surface-container transition-colors">
         <span class="material-symbols-outlined text-[24px]">arrow_back</span>
       </button>
-      <h1 class="font-headline-sm text-headline-sm text-on-surface truncate">${route.title}</h1>
+      <span class="font-headline-sm text-headline-sm text-on-surface truncate">${route.title}</span>
     </div>`;
 
   header.querySelector("[data-back]").addEventListener("click", () => {
@@ -49,6 +49,8 @@ function drawHeader(route) {
 function markActiveTab(tab) {
   for (const link of nav.querySelectorAll("a[data-tab]")) {
     const active = link.dataset.tab === tab;
+    if (active) link.setAttribute("aria-current", "page");
+    else link.removeAttribute("aria-current");
     link.classList.toggle("text-primary", active);
     link.classList.toggle("bg-primary-fixed/40", active);
     link.classList.toggle("font-bold", active);
