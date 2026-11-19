@@ -1,7 +1,4 @@
-const CACHE_VERSION = "ngesrep-v8";
-
-// Samakan dengan API_BASE_URL di js/config.js.
-const API_BASE_URL = "https://ngesrep-7xy6.vercel.app";
+const CACHE_VERSION = "ngesrep-v1913ed2fa45cb2d3";
 
 const SHELL = [
   "./",
@@ -51,7 +48,7 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches
       .keys()
-      .then((keys) => Promise.all(keys.filter((key) => key !== CACHE_VERSION).map((key) => caches.delete(key))))
+      .then((keys) => Promise.all(keys.filter((key) => key.startsWith("ngesrep-v") && key !== CACHE_VERSION).map((key) => caches.delete(key))))
       .then(() => self.clients.claim())
   );
 });
@@ -63,44 +60,20 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(request.url);
 
-  // API: network-first, salinan disimpan untuk dipakai saat offline.
-  if (request.url.startsWith(API_BASE_URL)) {
-    event.respondWith(
-      fetch(request)
-        .then(async (response) => {
-          if (response.ok) await cacheResponse(request, response.clone());
-          return response;
-        })
-        .catch(async () => (await caches.match(request)) || Response.error())
-    );
-    return;
-  }
-
-  // Gambar: cache-first.
-  if (url.pathname.includes("/images/")) {
-    event.respondWith(
-      (async () => {
-        const cached = await caches.match(request);
-        if (cached) return cached;
-        const response = await fetch(request);
-        if (response.ok) await cacheResponse(request, response.clone());
-        return response;
-      })()
-    );
-    return;
-  }
+  // js/api.js memegang satu-satunya salinan offline untuk data API.
+  if (url.pathname.startsWith("/api/")) return;
 
   // Navigasi halaman: coba jaringan, jika gagal pakai index.html dari cache.
   if (request.mode === "navigate") {
-    event.respondWith(fetch(request).catch(() => caches.match("index.html")));
+    event.respondWith(fetch(request).catch(() => caches.match("index.html", { cacheName: CACHE_VERSION })));
     return;
   }
 
   // Aset app shell lain (css, js, ikon): cache-first.
-  if (url.origin === location.origin) {
+  if (url.origin === location.origin || url.pathname.includes("/images/")) {
     event.respondWith(
       (async () => {
-        const cached = await caches.match(request);
+        const cached = await caches.match(request, { cacheName: CACHE_VERSION }).catch(() => undefined);
         if (cached) return cached;
         const response = await fetch(request);
         if (response.ok) await cacheResponse(request, response.clone());

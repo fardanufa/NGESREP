@@ -1,5 +1,5 @@
 import { getRecipe } from "../api.js";
-import { esc, imgTag, rupiah, stateBox, retryButton } from "../ui.js";
+import { esc, imgTag, rupiah, stateBox, retryButton, toast } from "../ui.js";
 import { isFavorite, toggleFavorite } from "../favorites.js";
 
 const backLink = `<a href="#/beranda" class="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-primary text-on-primary font-label-lg shadow-sm hover:opacity-90 active:scale-95 transition-all">
@@ -8,8 +8,8 @@ const backLink = `<a href="#/beranda" class="inline-flex items-center gap-2 px-6
 function ingredientItem(text) {
   return `
   <label class="ingredient-item flex items-center gap-3 p-3 rounded-2xl bg-surface-container-lowest shadow-sm cursor-pointer select-none transition-all active:scale-[0.99]">
-    <input class="ingredient-checkbox hidden" type="checkbox">
-    <div class="checkbox-indicator w-6 h-6 rounded-lg bg-surface-container-high flex items-center justify-center text-transparent transition-all shrink-0">
+    <input class="ingredient-checkbox sr-only peer" type="checkbox">
+    <div class="checkbox-indicator peer-focus-visible:ring-2 peer-focus-visible:ring-primary w-6 h-6 rounded-lg bg-surface-container-high flex items-center justify-center text-transparent transition-all shrink-0">
       <span class="material-symbols-outlined text-[16px] font-bold">check</span>
     </div>
     <span class="ingredient-text font-body-md text-body-md text-on-surface flex-1">${esc(text)}</span>
@@ -137,22 +137,25 @@ function mount(main, recipe) {
   }
 
   paint(isFavorite(recipe.id));
-  favButton.addEventListener("click", () => {
-    toggleFavorite(recipe);
-    paint(isFavorite(recipe.id));
+  favButton.addEventListener("click", async () => {
+    try {
+      paint(await toggleFavorite(recipe));
+    } catch {
+      toast("Perubahan favorit tidak tersimpan.");
+    }
   });
 }
 
-export async function detailResep(main, id) {
-  const isCurrentRoute = () => location.hash === `#/resep/${id}`;
+export async function detailResep(main, id, signal) {
+  main.textContent = "Memuat resep…";
   try {
-    const recipe = await getRecipe(id);
-    if (!isCurrentRoute()) return;
+    const recipe = await getRecipe(id, signal);
+    if (signal.aborted) return;
     main.innerHTML = view(recipe);
     mount(main, recipe);
   } catch (err) {
-    if (!isCurrentRoute()) return;
-    if (err.status === 404) {
+    if (signal.aborted) return;
+    if ([404, 410].includes(err.status)) {
       main.innerHTML = `<div class="px-gutter pt-space-md">${stateBox(
         "ramen_dining",
         "Resep tidak ditemukan",
@@ -168,6 +171,6 @@ export async function detailResep(main, id) {
       "Periksa koneksi internet lalu coba lagi.",
       retryButton()
     )}</div>`;
-    main.querySelector("[data-retry]").onclick = () => detailResep(main, id);
+    main.querySelector("[data-retry]").onclick = () => detailResep(main, id, signal);
   }
 }

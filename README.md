@@ -35,6 +35,10 @@ Akronim: **N**ikmat, **G**ampang, **E**konomis, **S**ehat — **RE**sep **P**rak
 | Database | Supabase (PostgreSQL) |
 | Hosting | API dan PWA: Vercel |
 
+Font disajikan dari `pwa/fonts/`: Plus Jakarta Sans (SIL OFL) dan Material Symbols Outlined
+(Apache 2.0). Font ikon telah diperkecil menjadi 33 ikon yang digunakan aplikasi. Jika
+menambah nama ikon baru, perbarui subset dan versi cache. Kedua lisensi disertakan di folder font.
+
 ## Arsitektur
 
 ```
@@ -50,13 +54,16 @@ PWA tidak mengakses Supabase secara langsung. Semua data lewat API sendiri.
 | GET | `/` | Cek API berjalan |
 | GET | `/api/categories` | Semua kategori |
 | GET | `/api/categories/:id` | Satu kategori |
-| POST / PUT / DELETE | `/api/categories` | CRUD kategori |
+| POST | `/api/categories` | Tambah kategori |
+| PUT / DELETE | `/api/categories/:id` | Ubah / hapus kategori |
 | GET | `/api/recipes` | Semua resep + nama kategori. Dukung `?category_id=` dan `?search=` |
 | GET | `/api/recipes/:id` | Satu resep + nama kategori |
-| POST / PUT / DELETE | `/api/recipes` | CRUD resep |
+| POST | `/api/recipes` | Tambah resep |
+| PUT / DELETE | `/api/recipes/:id` | Ubah / hapus resep |
 | GET | `/api/tips` | Semua tips. Dukung `?search=` |
 | GET | `/api/tips/:id` | Satu tips |
-| POST / PUT / DELETE | `/api/tips` | CRUD tips |
+| POST | `/api/tips` | Tambah tips |
+| PUT / DELETE | `/api/tips/:id` | Ubah / hapus tips |
 
 Format sukses: JSON langsung (array/objek). Format error: `{ "error": "pesan" }`.
 Semua `POST`, `PUT`, dan `DELETE` memerlukan header `Authorization: Bearer <ADMIN_API_KEY>`.
@@ -72,7 +79,14 @@ Postman. Jika `ADMIN_API_KEY` belum disetel, endpoint tulis akan mengembalikan `
    Schema mengaktifkan RLS tanpa memberi akses tabel langsung ke peran publik; akses aplikasi
    dilakukan melalui API server.
 
+**Database lama:** uji `api/sql/upgrade-rls.sql` pada salinan database, lalu jalankan hanya
+skrip tersebut saat upgrade disetujui. Jangan ulangi schema atau seed. Periksa juga bahwa
+tidak ada policy lama yang mengizinkan penulisan langsung oleh `anon` atau `authenticated`.
+
 ### 2. API
+
+Gunakan Node.js 22 atau lebih baru. Isi `ADMIN_API_KEY` dengan rahasia acak milik sendiri;
+biarkan kosong bila API hanya dipakai untuk membaca.
 
 ```bash
 cd api
@@ -97,8 +111,8 @@ npm run build:css          # menghasilkan css/style.css
 Sajikan folder `pwa/` lewat server statis (contoh: ekstensi Live Server, atau
 `npx serve .`), lalu buka `http://localhost:8080`.
 
-`API_BASE_URL` di `pwa/js/config.js` dan `pwa/sw.js` saat ini menunjuk ke API produksi. Untuk
-mengembangkan dengan API lokal, ubah keduanya ke `http://localhost:3000`.
+`API_BASE_URL` di `pwa/js/config.js` menunjuk ke API produksi. Untuk pengembangan lokal,
+ubah ke `http://localhost:3000`. Gunakan HTTPS atau localhost agar penyimpanan favorit lintas tab tersedia.
 
 ## Deploy
 
@@ -115,7 +129,9 @@ Cara deploy ulang dari nol:
    `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, dan `ADMIN_API_KEY`. Buat admin key acak dan
    simpan hanya di environment API; jangan set di project PWA. Tanpa admin key, tulis akan
    gagal tertutup dengan status `503`. Catat URL produksi.
-2. Ganti `API_BASE_URL` di `pwa/js/config.js` dan `pwa/sw.js` dengan URL Vercel tersebut.
+2. Ganti `API_BASE_URL` di `pwa/js/config.js` dengan URL Vercel tersebut. Setiap perubahan
+   aset PWA: jalankan `npm run build:css` dari `pwa/`, lalu `npm test`. Build memperbarui versi
+   cache dari isi berkas; tes menolak versi lama. Sertakan CSS dan `sw.js` hasilnya dalam rilis.
 3. **PWA ke Vercel:** import repository lagi, set Root Directory `pwa`, Framework Preset `Other`,
    tanpa build command (CSS sudah dikompilasi dan ikut di-commit).
 4. Buka URL PWA di HP, uji install dan mode offline.

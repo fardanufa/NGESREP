@@ -63,7 +63,7 @@ export async function beranda(main) {
   const chips = main.querySelector("#category-chips");
   const input = main.querySelector("#recipe-search");
 
-  let recipes = [];
+  let recipes;
   let category = "all";
   let query = "";
 
@@ -80,6 +80,7 @@ export async function beranda(main) {
   }
 
   function draw() {
+    if (!recipes) return;
     const items = filtered();
     list.innerHTML = items.length
       ? items.map(card).join("")
@@ -116,15 +117,9 @@ export async function beranda(main) {
   async function load() {
     list.innerHTML = skeletonList(3);
     try {
-      const [recipeData, categories] = await Promise.all([getRecipes(), getCategories()]);
-      recipes = recipeData;
-      chips.innerHTML =
-        chipLabel("all", "Semua", category === "all") +
-        categories.map((item) => chipLabel(item.id, item.name, category === item.id)).join("");
-      paintChips();
+      recipes = await getRecipes();
       draw();
     } catch {
-      chips.innerHTML = "";
       list.innerHTML = stateBox(
         "cloud_off",
         "Gagal memuat resep",
@@ -135,5 +130,8 @@ export async function beranda(main) {
     }
   }
 
-  await load();
+  await Promise.all([load(), getCategories().then((categories) => {
+    chips.innerHTML = chipLabel("all", "Semua", true) +
+      categories.map((item) => chipLabel(item.id, item.name, false)).join("");
+  }).catch(() => { /* Filter kategori tidak wajib. */ })]);
 }

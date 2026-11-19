@@ -56,7 +56,10 @@ function markActiveTab(tab) {
   }
 }
 
+let visit;
 export async function renderRoute() {
+  visit?.abort();
+  visit = new AbortController();
   const path = (location.hash || "#/beranda").replace(/^#/, "");
 
   let matched = null;
@@ -79,5 +82,5 @@ export async function renderRoute() {
   markActiveTab(route.tab);
   window.scrollTo(0, 0);
 
-  await route.page(main, params[1]);
+  await route.page(main, params[1], visit.signal);
 }

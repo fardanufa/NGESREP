@@ -2,8 +2,10 @@
   "name": "ngesrep-pwa",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
-    "build:css": "tailwindcss -i ./src/input.css -o ./css/style.css --minify",
+    "build:css": "tailwindcss -i ./src/input.css -o ./css/style.css --minify && node scripts/cache-version.cjs --write",
+    "test": "node --test && node scripts/cache-version.cjs",
     "watch:css": "tailwindcss -i ./src/input.css -o ./css/style.css --watch"
   },
   "devDependencies": {

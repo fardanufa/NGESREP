@@ -2,16 +2,31 @@
 
 const KEY = "ngesrep_favorites";
 
-export function getFavorites() {
+function readList() {
+  const raw = localStorage.getItem(KEY);
   try {
-    return JSON.parse(localStorage.getItem(KEY)) || [];
+    const list = JSON.parse(raw);
+    return Array.isArray(list) ? list.filter((item) => typeof item?.id === "string" && typeof item.name === "string") : [];
   } catch {
     return [];
   }
 }
 
-function save(list) {
-  localStorage.setItem(KEY, JSON.stringify(list));
+export function getFavorites() {
+  try {
+    return readList();
+  } catch {
+    return [];
+  }
+}
+
+function changeList(edit) {
+  return navigator.locks.request(KEY, () => {
+    const list = readList();
+    const result = edit(list);
+    localStorage.setItem(KEY, JSON.stringify(list));
+    return result;
+  });
 }
 
 export function isFavorite(id) {
@@ -20,25 +35,20 @@ export function isFavorite(id) {
 
 // Mengembalikan true jika resep sekarang tersimpan.
 export function toggleFavorite(recipe) {
-  const list = getFavorites();
-  const index = list.findIndex((item) => item.id === recipe.id);
-
-  if (index >= 0) {
-    list.splice(index, 1);
-  } else {
-    list.unshift({
-      id: recipe.id,
-      name: recipe.name,
-      image_url: recipe.image_url,
-      cook_time: recipe.cook_time,
-      cost_estimate: recipe.cost_estimate,
-    });
-  }
-
-  save(list);
-  return index < 0;
+  return changeList((list) => {
+    const index = list.findIndex((item) => item.id === recipe.id);
+    if (index >= 0) list.splice(index, 1);
+    else {
+      const { id, name, image_url, cook_time, cost_estimate } = recipe;
+      list.unshift({ id, name, image_url, cook_time, cost_estimate });
+    }
+    return index < 0;
+  });
 }
 
 export function removeFavorite(id) {
-  save(getFavorites().filter((item) => item.id !== id));
+  return changeList((list) => {
+    const index = list.findIndex((item) => item.id === id);
+    if (index >= 0) list.splice(index, 1);
+  });
 }

@@ -1,6 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 // Token desain disalin dari design/*.html (Google Stitch).
-module.exports = {
+export default {
   content: ["./index.html", "./js/**/*.js"],
   darkMode: "class",
   theme: {

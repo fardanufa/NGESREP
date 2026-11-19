@@ -16,7 +16,7 @@ export async function detail(req, res) {
 }
 
 export async function create(req, res) {
-  const name = String(req.body.name ?? "").trim();
+  const name = typeof req.body.name === "string" && req.body.name.trim();
   if (!name) return res.status(400).json({ error: "Field name wajib diisi" });
 
   const { data, error } = await model.create({ name });
@@ -29,7 +29,7 @@ export async function update(req, res) {
     return res.status(400).json({ error: "Tidak ada field yang diperbarui" });
   }
 
-  const name = String(req.body.name).trim();
+  const name = typeof req.body.name === "string" && req.body.name.trim();
   if (!name) return res.status(400).json({ error: "Field name tidak boleh kosong" });
 
   const { data, error } = await model.update(req.params.id, { name });

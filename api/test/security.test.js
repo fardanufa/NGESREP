@@ -1,82 +1,62 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { requireAdmin } from "../src/middleware/requireAdmin.js";
+import { createServer } from "node:http";
+import { once } from "node:events";
 import { isNonNegativeInteger } from "../src/validation.js";
 
-process.env.SUPABASE_URL = "https://example.supabase.co";
-process.env.SUPABASE_SERVICE_ROLE_KEY = "test-key";
-
-const [routes, { create }] = await Promise.all([
-  Promise.all([
-    import("../src/routes/categoryRoutes.js"),
-    import("../src/routes/recipeRoutes.js"),
-    import("../src/routes/tipRoutes.js"),
-  ]),
-  import("../src/controllers/recipeController.js"),
-]);
-
-function checkAuth(key, authorization) {
-  const previous = process.env.ADMIN_API_KEY;
-  if (key === undefined) delete process.env.ADMIN_API_KEY;
-  else process.env.ADMIN_API_KEY = key;
-
-  let statusCode = 200;
-  let body;
-  let calledNext = false;
-  const res = {
-    status(code) {
-      statusCode = code;
-      return this;
-    },
-    json(value) {
-      body = value;
-      return this;
-    },
-  };
-
-  requireAdmin({ get: () => authorization }, res, () => (calledNext = true));
-  if (previous === undefined) delete process.env.ADMIN_API_KEY;
-  else process.env.ADMIN_API_KEY = previous;
-  return { statusCode, body, calledNext };
-}
-
-test("write routes require admin auth", () => {
-  for (const { default: router } of routes) {
-    const writes = router.stack.filter((layer) => layer.route && /^(post|put|delete)$/.test(Object.keys(layer.route.methods)[0]));
-    assert.equal(writes.length, 3);
-    for (const layer of writes) assert.equal(layer.route.stack[0].handle, requireAdmin);
+test("HTTP reads, write authorization and input validation", async (t) => {
+  const calls = [];
+  async function listen(server) {
+    server.listen(0, "127.0.0.1");
+    await once(server, "listening");
+    t.after(() => new Promise((resolve) => server.close(resolve)));
+    return `http://127.0.0.1:${server.address().port}`;
   }
+  process.env.SUPABASE_URL = await listen(createServer((req, res) => {
+    calls.push([req.method, req.url, req.headers.apikey]);
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(req.method === "GET" ? "[]" : '{"name":"Nasi"}');
+  }));
+  process.env.VERCEL = "1";
+  process.env.SUPABASE_KEY = "legacy-fixture";
+  process.env.SUPABASE_SERVICE_ROLE_KEY = "service-fixture";
+  const { default: app } = await import("../src/index.js");
+  const url = await listen(createServer(app));
+  const id = "00000000-0000-4000-8000-000000000001";
+  const request = (method, path, body, key) => fetch(`${url}/api/${path}`, {
+    method,
+    headers: { "Content-Type": "application/json", ...(key && { Authorization: `Bearer ${key}` }) },
+    body: JSON.stringify(body),
+  });
+  const key = "test-only";
+  delete process.env.ADMIN_API_KEY;
+  assert.equal((await request("POST", "recipes", {}, key)).status, 503);
+  process.env.ADMIN_API_KEY = key;
+  for (const resource of ["categories", "recipes", "tips"]) {
+    assert.equal((await request("GET", resource)).status, 200);
+    assert.equal((await request("GET", `${resource}/bad-id`)).status, 404);
+    for (const method of ["POST", "PUT", "DELETE"]) {
+      const path = method === "POST" ? resource : `${resource}/${id}`;
+      assert.equal((await request(method, path)).status, 401);
+      assert.equal((await request(method, path, {}, "bad")).status, 401);
+      if (method === "DELETE") continue;
+      for (const body of [undefined, [], resource === "tips" ? { title: null } : { name: null }]) {
+        assert.equal((await request(method, path, body, key)).status, 400);
+      }
+      if (resource === "recipes") {
+        for (const field of ["cost_estimate", "cook_time"]) {
+          assert.equal((await request(method, path, { name: "Nasi", [field]: -1 }, key)).status, 400);
+        }
+      }
+    }
+  }
+  assert.equal(calls.length, 3);
+  assert.ok(calls.every(([method,, apiKey]) => method === "GET" && apiKey === "service-fixture"));
+  assert.equal((await request("POST", "recipes", { name: "Nasi", cost_estimate: 0 }, key)).status, 201);
+  assert.equal(calls.at(-1)[0], "POST");
 });
 
-test("admin auth fails closed and accepts only the configured bearer key", () => {
-  assert.equal(checkAuth(undefined, "Bearer secret").statusCode, 503);
-  assert.equal(checkAuth("secret", undefined).statusCode, 401);
-  assert.equal(checkAuth("secret", "Bearer wrong").statusCode, 401);
-  assert.equal(checkAuth("secret", "Bearer secret").calledNext, true);
-});
-
-test("recipe numeric fields accept only non-negative PostgreSQL integers", () => {
-  assert.equal(isNonNegativeInteger(0), true);
-  assert.equal(isNonNegativeInteger(2147483647), true);
-  assert.equal(isNonNegativeInteger(-1), false);
-  assert.equal(isNonNegativeInteger(1.5), false);
-  assert.equal(isNonNegativeInteger("4"), false);
-  assert.equal(isNonNegativeInteger(2147483648), false);
-});
-
-test("recipe create rejects invalid numeric fields before writing", async () => {
-  let statusCode;
-  const res = {
-    status(code) {
-      statusCode = code;
-      return this;
-    },
-    json(body) {
-      this.body = body;
-      return this;
-    },
-  };
-  await create({ body: { name: "Nasi", cost_estimate: -1 } }, res);
-  assert.equal(statusCode, 400);
-  assert.match(res.body.error, /cost_estimate/);
+test("PostgreSQL integer bounds for prices and times", () => {
+  for (const value of [0, 2147483647]) assert.ok(isNonNegativeInteger(value));
+  for (const value of [-1, 1.5, "4", 2147483648]) assert.ok(!isNonNegativeInteger(value));
 });

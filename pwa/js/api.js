@@ -5,39 +5,42 @@ import { toast } from "./ui.js";
 
 const CACHE_PREFIX = "ngesrep_cache";
 
-async function request(path) {
+async function request(path, id, signal) {
+  const key = CACHE_PREFIX + path;
+  const label = path.startsWith("/api/tips") ? "title" : "name";
+  const row = (item) => typeof item?.id === "string" && typeof item[label] === "string";
+  const valid = (data) => id === undefined ? Array.isArray(data) && data.every(row) : row(data) && data.id.toLowerCase() === id.toLowerCase();
+  let res;
   try {
-    const res = await fetch(`${API_BASE_URL}${path}`);
-    const body = await res.json().catch(() => ({}));
-
-    if (!res.ok) {
-      throw Object.assign(new Error(body.error || "Gagal memuat data"), { status: res.status });
-    }
-
-    try {
-      localStorage.setItem(CACHE_PREFIX + path, JSON.stringify(body));
-    } catch {
-      // Cache is optional; a successful online read must still render.
-    }
-    return body;
+    res = await fetch(`${API_BASE_URL}${path}`, { signal });
   } catch (err) {
-    // Hanya kegagalan jaringan (bukan 404/500) yang memakai data tersimpan.
-    let saved;
+    if (signal?.aborted) throw err;
     try {
-      saved = localStorage.getItem(CACHE_PREFIX + path);
+      const cached = JSON.parse(localStorage.getItem(key));
+      if (valid(cached)) {
+        toast("Kamu sedang offline. Menampilkan data tersimpan.");
+        return cached;
+      }
     } catch {
-      // Storage may be disabled; propagate the original network error.
-    }
-    if (err.status === undefined && saved) {
-      toast("Kamu sedang offline. Menampilkan data tersimpan.");
-      return JSON.parse(saved);
+      // Penyimpanan tidak tersedia atau isinya rusak.
     }
     throw err;
   }
+  if (!res.ok) {
+    if ([404, 410].includes(res.status)) {
+      try { localStorage.removeItem(key); } catch { /* Penyimpanan opsional. */ }
+    }
+    throw Object.assign(new Error("Gagal memuat data"), { status: res.status });
+  }
+  const body = await res.json();
+  if (!valid(body)) throw new Error("Format data API tidak valid");
+  signal?.throwIfAborted();
+  try { localStorage.setItem(key, JSON.stringify(body)); } catch { /* Data tetap tersedia online. */ }
+  return body;
 }
 
 export const getCategories = () => request("/api/categories");
 export const getRecipes = () => request("/api/recipes");
-export const getRecipe = (id) => request(`/api/recipes/${encodeURIComponent(id)}`);
-export const getTips = () => request("/api/tips");
-export const getTip = (id) => request(`/api/tips/${encodeURIComponent(id)}`);
+export const getRecipe = (id, signal) => request(`/api/recipes/${encodeURIComponent(id)}`, id, signal);
+export const getTips = (signal) => request("/api/tips", undefined, signal);
+export const getTip = (id, signal) => request(`/api/tips/${encodeURIComponent(id)}`, id, signal);

@@ -19,7 +19,7 @@ function otherCard(tip) {
   </a>`;
 }
 
-function view(tip, others) {
+function view(tip) {
   const paragraphs = String(tip.content || "")
     .split("\n\n")
     .map((paragraph) => paragraph.trim())
@@ -50,34 +50,31 @@ function view(tip, others) {
           : ""
       }
 
-      ${
-        others.length
-          ? `<div class="flex flex-col gap-space-sm pt-space-sm">
-              <h2 class="font-headline-sm text-headline-sm text-on-surface font-bold tracking-tight">Tips Lainnya</h2>
-              ${others.map(otherCard).join("")}
-            </div>`
-          : ""
-      }
+      <div data-others hidden class="flex-col gap-space-sm pt-space-sm"></div>
     </div>
   </div>`;
 }
 
-export async function detailTips(main, id) {
-  const isCurrentRoute = () => location.hash === `#/tips/${id}`;
+export async function detailTips(main, id, signal) {
+  main.textContent = "Memuat tips…";
   try {
-    const tip = await getTip(id);
-    let others = [];
+    const tip = await getTip(id, signal);
+    if (signal.aborted) return;
+    main.innerHTML = view(tip);
+    const section = main.querySelector("[data-others]");
     try {
-      const all = await getTips();
-      others = all.filter((item) => item.id !== tip.id).slice(0, 2);
+      const all = await getTips(signal);
+      const others = all.filter((item) => item.id !== tip.id).slice(0, 2);
+      if (signal.aborted || !others.length) return;
+      section.hidden = false;
+      section.classList.add("flex");
+      section.innerHTML = `<h2 class="font-headline-sm text-headline-sm font-bold">Tips Lainnya</h2>${others.map(otherCard).join("")}`;
     } catch {
       // Daftar tips lain tidak wajib; tips utama tetap ditampilkan.
     }
-    if (!isCurrentRoute()) return;
-    main.innerHTML = view(tip, others);
   } catch (err) {
-    if (!isCurrentRoute()) return;
-    if (err.status === 404) {
+    if (signal.aborted) return;
+    if ([404, 410].includes(err.status)) {
       main.innerHTML = `<div class="px-gutter pt-space-md">${stateBox(
         "search_off",
         "Tips tidak ditemukan",
@@ -93,6 +90,6 @@ export async function detailTips(main, id) {
       "Periksa koneksi internet lalu coba lagi.",
       retryButton()
     )}</div>`;
-    main.querySelector("[data-retry]").onclick = () => detailTips(main, id);
+    main.querySelector("[data-retry]").onclick = () => detailTips(main, id, signal);
   }
 }

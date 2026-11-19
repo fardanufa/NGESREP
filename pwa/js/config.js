@@ -1,4 +1,4 @@
-// Konfigurasi aplikasi. Samakan dengan API_BASE_URL di sw.js.
+// Alamat API publik untuk PWA.
 export const API_BASE_URL = "https://ngesrep-7xy6.vercel.app";
 
 export const PROFILE = {

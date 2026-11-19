@@ -25,7 +25,7 @@ export async function detail(req, res) {
 
 export async function create(req, res) {
   const payload = pickFields(req.body);
-  if (!String(payload.title ?? "").trim()) {
+  if (typeof payload.title !== "string" || !payload.title.trim()) {
     return res.status(400).json({ error: "Field title wajib diisi" });
   }
 
@@ -39,7 +39,7 @@ export async function update(req, res) {
   if (!Object.keys(payload).length) {
     return res.status(400).json({ error: "Tidak ada field yang diperbarui" });
   }
-  if (payload.title !== undefined && !String(payload.title).trim()) {
+  if (payload.title !== undefined && (typeof payload.title !== "string" || !payload.title.trim())) {
     return res.status(400).json({ error: "Field title tidak boleh kosong" });
   }
 

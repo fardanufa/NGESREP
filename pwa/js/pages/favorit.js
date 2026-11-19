@@ -1,5 +1,5 @@
 import { getFavorites, removeFavorite } from "../favorites.js";
-import { esc, imgTag, rupiah, stateBox } from "../ui.js";
+import { esc, imgTag, rupiah, stateBox, toast } from "../ui.js";
 
 const emptyState = stateBox(
   "soup_kitchen",
@@ -62,11 +62,15 @@ export async function favorit(main) {
     container.innerHTML = favorites.map(card).join("");
 
     container.querySelectorAll("[data-remove]").forEach((button) => {
-      button.addEventListener("click", (event) => {
+      button.addEventListener("click", async (event) => {
         event.preventDefault();
         event.stopPropagation();
-        removeFavorite(button.dataset.remove);
-        draw();
+        try {
+          await removeFavorite(button.dataset.remove);
+          draw();
+        } catch {
+          toast("Perubahan favorit tidak tersimpan.");
+        }
       });
     });
   }
