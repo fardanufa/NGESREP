@@ -12,10 +12,14 @@ test("HTTP reads, write authorization and input validation", async (t) => {
     t.after(() => new Promise((resolve) => server.close(resolve)));
     return `http://127.0.0.1:${server.address().port}`;
   }
-  process.env.SUPABASE_URL = await listen(createServer((req, res) => {
+  process.env.SUPABASE_URL = await listen(createServer(async (req, res) => {
     calls.push([req.method, req.url, req.headers.apikey]);
-    res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(req.method === "GET" ? "[]" : '{"name":"Nasi"}');
+    const chunks = [];
+    for await (const chunk of req) chunks.push(chunk);
+    const payload = JSON.parse(Buffer.concat(chunks).toString() || "{}");
+    const missingCategory = payload.category_id === "00000000-0000-4000-8000-000000000002";
+    res.writeHead(missingCategory ? 409 : 200, { "Content-Type": "application/json" });
+    res.end(missingCategory ? '{"code":"23503"}' : req.method === "POST" ? '{"name":"Nasi"}' : '[{"name":"Nasi"}]');
   }));
   process.env.VERCEL = "1";
   process.env.SUPABASE_KEY = "legacy-fixture";
@@ -52,8 +56,30 @@ test("HTTP reads, write authorization and input validation", async (t) => {
   }
   assert.equal(calls.length, 3);
   assert.ok(calls.every(([method,, apiKey]) => method === "GET" && apiKey === "service-fixture"));
-  assert.equal((await request("POST", "recipes", { name: "Nasi", cost_estimate: 0 }, key)).status, 201);
-  assert.equal(calls.at(-1)[0], "POST");
+  assert.equal((await request("GET", "recipes?category_id=abc")).status, 400);
+  for (const [method, path] of [["POST", "recipes"], ["PUT", `recipes/${id}`]]) {
+    const result = await request(method, path, { name: "Nasi", category_id: "abc" }, key);
+    assert.equal(result.status, 400);
+    assert.deepEqual(await result.json(), { error: "category_id tidak valid" });
+  }
+  assert.equal(calls.length, 3);
+  for (const [method, path] of [["POST", "recipes"], ["PUT", `recipes/${id}`]]) {
+    const result = await request(method, path, { name: "Nasi", category_id: "00000000-0000-4000-8000-000000000002" }, key);
+    assert.equal(result.status, 400);
+    assert.deepEqual(await result.json(), { error: "Kategori tidak ditemukan" });
+  }
+  assert.equal((await request("POST", "recipes", { name: "Nasi", cost_estimate: 0, category_id: null }, key)).status, 201);
+  for (const [method, databaseMethod, body] of [["PUT", "PATCH", { name: "Nasi", category_id: null }], ["DELETE", "DELETE"]]) {
+    for (const resource of ["recipes", "categories", "tips"]) {
+      const payload = resource === "tips" && body ? { title: "Tips" } : body;
+      assert.equal((await request(method, `${resource}/${id}`, payload, key)).status, 200);
+      const [actualMethod, target] = calls.at(-1);
+      assert.equal(actualMethod, databaseMethod);
+      const url = new URL(target, "http://localhost");
+      assert.equal(url.pathname, `/rest/v1/${resource}`);
+      assert.deepEqual(url.searchParams.getAll("id"), [`eq.${id}`]);
+    }
+  }
 });
 
 test("PostgreSQL integer bounds for prices and times", () => {

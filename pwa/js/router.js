@@ -41,7 +41,11 @@ function drawHeader(route) {
     </div>`;
 
   header.querySelector("[data-back]").addEventListener("click", () => {
-    if (history.length > 1) history.back();
+    const navigation = window.navigation;
+    const previous = navigation?.currentEntry && navigation.entries()[navigation.currentEntry.index - 1];
+    const from = previous?.url && new URL(previous.url);
+    if (from && from.origin === location.origin && from.pathname === location.pathname &&
+        ROUTES.some(({ re }) => re.test(from.hash.slice(1)))) history.back();
     else location.hash = route.back;
   });
 }

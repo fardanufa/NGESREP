@@ -1,6 +1,6 @@
 import { getRecipe } from "../api.js";
 import { esc, imgTag, rupiah, stateBox, retryButton, toast } from "../ui.js";
-import { isFavorite, toggleFavorite } from "../favorites.js";
+import { isFavorite, removeFavorite, saveFavorite } from "../favorites.js";
 
 const backLink = `<a href="#/beranda" class="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-primary text-on-primary font-label-lg shadow-sm hover:opacity-90 active:scale-95 transition-all">
   <span class="material-symbols-outlined text-[20px]">arrow_back</span>Kembali ke Beranda</a>`;
@@ -129,17 +129,22 @@ function mount(main, recipe) {
   const favButton = main.querySelector("[data-fav]");
   const icon = favButton.querySelector(".material-symbols-outlined");
 
-  function paint(active) {
+  let active = isFavorite(recipe.id);
+  function paint() {
     icon.style.fontVariationSettings = `'FILL' ${active ? 1 : 0}`;
     icon.classList.toggle("text-primary", active);
     icon.classList.toggle("text-on-surface-variant", !active);
     favButton.setAttribute("aria-label", active ? "Hapus dari favorit" : "Simpan ke favorit");
   }
 
-  paint(isFavorite(recipe.id));
+  paint();
   favButton.addEventListener("click", async () => {
     try {
-      paint(await toggleFavorite(recipe));
+      const save = !active;
+      if (save) await saveFavorite(recipe);
+      else await removeFavorite(recipe.id);
+      active = save;
+      paint();
     } catch {
       toast("Perubahan favorit tidak tersimpan.");
     }

@@ -38,7 +38,7 @@ function card(tip) {
   </a>`;
 }
 
-export async function tips(main) {
+export async function tips(main, _id, signal) {
   main.innerHTML = `
   <div class="w-full px-margin md:px-6 lg:px-8 max-w-6xl mx-auto flex flex-col gap-space-lg pb-space-xl">
     <section class="flex flex-col gap-space-xs pt-space-md">
@@ -68,10 +68,11 @@ export async function tips(main) {
   const input = main.querySelector("#tips-search");
   const clear = main.querySelector("#tips-clear");
 
-  let allTips = [];
+  let allTips;
   let query = "";
 
   function draw() {
+    if (!allTips) return;
     const keyword = query.toLowerCase();
     const items = allTips.filter(
       (tip) =>
@@ -102,9 +103,11 @@ export async function tips(main) {
   async function load() {
     list.innerHTML = skeleton;
     try {
-      allTips = await getTips();
+      allTips = await getTips(signal);
+      if (signal.aborted) return;
       draw();
     } catch {
+      if (signal.aborted) return;
       list.innerHTML = stateBox(
         "cloud_off",
         "Gagal memuat tips",

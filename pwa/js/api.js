@@ -26,6 +26,7 @@ async function request(path, id, signal) {
     }
     throw err;
   }
+  signal?.throwIfAborted();
   if (!res.ok) {
     if ([404, 410].includes(res.status)) {
       try { localStorage.removeItem(key); } catch { /* Penyimpanan opsional. */ }
@@ -39,8 +40,8 @@ async function request(path, id, signal) {
   return body;
 }
 
-export const getCategories = () => request("/api/categories");
-export const getRecipes = () => request("/api/recipes");
-export const getRecipe = (id, signal) => request(`/api/recipes/${encodeURIComponent(id)}`, id, signal);
+export const getCategories = (signal) => request("/api/categories", undefined, signal);
+export const getRecipes = (signal) => request("/api/recipes", undefined, signal);
+export const getRecipe = (id, signal) => request(`/api/recipes/${encodeURIComponent(id.toLowerCase())}`, id, signal);
 export const getTips = (signal) => request("/api/tips", undefined, signal);
-export const getTip = (id, signal) => request(`/api/tips/${encodeURIComponent(id)}`, id, signal);
+export const getTip = (id, signal) => request(`/api/tips/${encodeURIComponent(id.toLowerCase())}`, id, signal);

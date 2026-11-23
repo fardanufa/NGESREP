@@ -31,7 +31,7 @@ function chipLabel(id, label, active) {
   return `<button type="button" data-category="${esc(id)}" aria-pressed="${active}" class="${style} min-h-11 min-w-11 px-space-md py-2 rounded-full font-label-lg text-label-lg whitespace-nowrap shadow-sm shrink-0 flex items-center gap-1 transition-transform active:scale-95">${icon}${esc(label)}</button>`;
 }
 
-export async function beranda(main) {
+export async function beranda(main, _id, signal) {
   main.innerHTML = `
   <section class="px-gutter pt-space-xs pb-space-sm">
     <div class="bg-gradient-to-br from-surface-container-low via-surface-container to-surface-container-highest rounded-2xl p-space-md shadow-sm">
@@ -118,9 +118,11 @@ export async function beranda(main) {
   async function load() {
     list.innerHTML = skeletonList(3);
     try {
-      recipes = await getRecipes();
+      recipes = await getRecipes(signal);
+      if (signal.aborted) return;
       draw();
     } catch {
+      if (signal.aborted) return;
       list.innerHTML = stateBox(
         "cloud_off",
         "Gagal memuat resep",
@@ -131,7 +133,8 @@ export async function beranda(main) {
     }
   }
 
-  await Promise.all([load(), getCategories().then((categories) => {
+  await Promise.all([load(), getCategories(signal).then((categories) => {
+    if (signal.aborted) return;
     chips.innerHTML = chipLabel("all", "Semua", true) +
       categories.map((item) => chipLabel(item.id, item.name, false)).join("");
   }).catch(() => { /* Filter kategori tidak wajib. */ })]);

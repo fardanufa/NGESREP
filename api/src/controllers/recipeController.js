@@ -1,5 +1,5 @@
 import * as model from "../models/recipeModel.js";
-import { isNonNegativeInteger } from "../validation.js";
+import { isId, isNonNegativeInteger } from "../validation.js";
 
 // Field yang boleh diisi lewat POST/PUT.
 const FIELDS = [
@@ -28,6 +28,9 @@ function invalidNumberField(payload) {
 }
 
 export async function list(req, res) {
+  if (req.query.category_id !== undefined && !isId(req.query.category_id)) {
+    return res.status(400).json({ error: "category_id tidak valid" });
+  }
   const { data, error } = await model.findAll({
     categoryId: req.query.category_id,
     search: req.query.search,
@@ -50,8 +53,12 @@ export async function create(req, res) {
   }
   const invalid = invalidNumberField(payload);
   if (invalid) return res.status(400).json({ error: `Field ${invalid} harus bilangan bulat 0 atau lebih` });
+  if (payload.category_id != null && !isId(payload.category_id)) {
+    return res.status(400).json({ error: "category_id tidak valid" });
+  }
 
   const { data, error } = await model.create(payload);
+  if (error?.code === "23503") return res.status(400).json({ error: "Kategori tidak ditemukan" });
   if (error) return res.status(500).json({ error: error.message });
   res.status(201).json(data);
 }
@@ -66,8 +73,12 @@ export async function update(req, res) {
   }
   const invalid = invalidNumberField(payload);
   if (invalid) return res.status(400).json({ error: `Field ${invalid} harus bilangan bulat 0 atau lebih` });
+  if (payload.category_id != null && !isId(payload.category_id)) {
+    return res.status(400).json({ error: "category_id tidak valid" });
+  }
 
   const { data, error } = await model.update(req.params.id, payload);
+  if (error?.code === "23503") return res.status(400).json({ error: "Kategori tidak ditemukan" });
   if (error) return res.status(500).json({ error: error.message });
   if (!data) return res.status(404).json({ error: "Resep tidak ditemukan" });
   res.json(data);

@@ -3,8 +3,9 @@ import assert from "node:assert/strict";
 import vm from "node:vm";
 import { readFile } from "node:fs/promises";
 import { getRecipe, getRecipes } from "../js/api.js";
-import { getFavorites, toggleFavorite, removeFavorite } from "../js/favorites.js";
+import { getFavorites, saveFavorite, removeFavorite } from "../js/favorites.js";
 import { detailTips } from "../js/pages/detailTips.js";
+import { tips } from "../js/pages/tips.js";
 
 test("only good data survives offline; a confirmed deletion removes it", async (t) => {
   const data = new Map();
@@ -26,11 +27,25 @@ test("only good data survives offline; a confirmed deletion removes it", async (
   assert.match(status.message, /offline/);
   for (const status of [404, 410]) {
     fetch.mock.mockImplementation(async () => Response.json(good[0]));
-    await getRecipe("r");
+    await getRecipe("R");
     fetch.mock.mockImplementation(async () => new Response(null, { status }));
     await assert.rejects(getRecipe("r"), { status });
     fetch.mock.mockImplementation(offline);
-    await assert.rejects(getRecipe("r"), /offline/);
+    await assert.rejects(getRecipe("R"), /offline/);
+  }
+
+  for (const stale of [Response.json([{ id: "r", name: "Old" }]), new Response(null, { status: 404 })]) {
+    let finish;
+    const visit = new AbortController();
+    fetch.mock.mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+    const pending = getRecipes(visit.signal);
+    visit.abort();
+    fetch.mock.mockImplementation(async () => Response.json(good));
+    await getRecipes();
+    finish(stale);
+    await assert.rejects(pending, { name: "AbortError" });
+    fetch.mock.mockImplementation(offline);
+    assert.deepEqual(await getRecipes(), good);
   }
 });
 
@@ -59,13 +74,53 @@ test("favorites recover from malformed entries and report a failed save", async 
   } });
   const recipe = { id: "r", name: "Nasi" };
   assert.deepEqual(getFavorites(), []);
-  assert.equal(await toggleFavorite(recipe), true);
+  await saveFavorite(recipe);
+  await saveFavorite(recipe);
+  assert.deepEqual(getFavorites(), [recipe]);
   full = true;
   await assert.rejects(removeFavorite("r"), /quota/);
   assert.deepEqual(getFavorites(), [recipe]);
   full = false;
   await removeFavorite("r");
   assert.deepEqual(getFavorites(), []);
+});
+
+test("typing before tips load does not replace the retry button", async (t) => {
+  t.mock.method(globalThis, "fetch", async () => new Response(null, { status: 503 }));
+  const list = { querySelector: () => ({}) };
+  const input = { value: "nasi", addEventListener(type, handler) { this[type] = handler; } };
+  const clear = { classList: { toggle() {} }, addEventListener() {} };
+  const nodes = { "#tips-list": list, "#tips-search": input, "#tips-clear": clear };
+  await tips({ querySelector: selector => nodes[selector] }, undefined, new AbortController().signal);
+  input.input();
+  assert.match(list.innerHTML, /data-retry/);
+});
+
+test("detail Back uses app history only when the previous entry is an app route", async () => {
+  let back;
+  const header = { querySelector: () => ({ addEventListener: (_type, fn) => { back = fn; } }) };
+  const main = { querySelector: () => ({}) };
+  const nav = { classList: { toggle() {} }, querySelectorAll: () => [] };
+  globalThis.document = { getElementById: id => ({ "app-header": header, app: main, "bottom-nav": nav })[id] };
+  globalThis.location = { origin: "https://example.test", pathname: "/", hash: "#/resep/r" };
+  let historyCalls = 0;
+  globalThis.history = { back() { historyCalls++; } };
+  globalThis.window = { scrollTo() {} };
+  const { renderRoute } = await import("../js/router.js");
+  const fetchBefore = globalThis.fetch;
+  globalThis.fetch = async () => new Response(null, { status: 404 });
+  try {
+    await renderRoute();
+    for (const url of [undefined, "https://other.test/#/favorit", "https://example.test/other#/favorit", "https://example.test/#/favorit"]) {
+      location.hash = "#/resep/r";
+      window.navigation = url && { currentEntry: { index: 1 }, entries: () => [{ url }] };
+      back();
+      assert.equal(location.hash, url === "https://example.test/#/favorit" ? "#/resep/r" : "#/beranda");
+    }
+    assert.equal(historyCalls, 1);
+  } finally {
+    globalThis.fetch = fetchBefore;
+  }
 });
 
 test("a late response from an earlier visit cannot replace the same tip", async (t) => {

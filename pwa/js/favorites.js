@@ -33,16 +33,12 @@ export function isFavorite(id) {
   return getFavorites().some((item) => item.id === id);
 }
 
-// Mengembalikan true jika resep sekarang tersimpan.
-export function toggleFavorite(recipe) {
+export function saveFavorite(recipe) {
   return changeList((list) => {
-    const index = list.findIndex((item) => item.id === recipe.id);
-    if (index >= 0) list.splice(index, 1);
-    else {
+    if (!list.some((item) => item.id === recipe.id)) {
       const { id, name, image_url, cook_time, cost_estimate } = recipe;
       list.unshift({ id, name, image_url, cook_time, cost_estimate });
     }
-    return index < 0;
   });
 }
 
