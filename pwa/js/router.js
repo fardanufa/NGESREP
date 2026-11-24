@@ -4,6 +4,7 @@ import { tips } from "./pages/tips.js";
 import { detailTips } from "./pages/detailTips.js";
 import { favorit } from "./pages/favorit.js";
 import { profil } from "./pages/profil.js";
+import { login } from "./pages/login.js";
 
 const header = document.getElementById("app-header");
 const main = document.getElementById("app");
@@ -17,6 +18,7 @@ const ROUTES = [
   { re: /^\/tips\/([^/]+)$/, page: detailTips, title: "Detail Tips", back: "#/tips" },
   { re: /^\/favorit\/?$/, page: favorit, tab: "favorit" },
   { re: /^\/profil\/?$/, page: profil, tab: "profil" },
+  { re: /^\/login\/?$/, page: login, title: "Masuk / Daftar", back: "#/beranda" },
 ];
 
 function logoHTML() {

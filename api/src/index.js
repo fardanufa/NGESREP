@@ -3,16 +3,14 @@ import cors from "cors";
 import categoryRoutes from "./routes/categoryRoutes.js";
 import recipeRoutes from "./routes/recipeRoutes.js";
 import tipRoutes from "./routes/tipRoutes.js";
+import authRoutes from "./routes/authRoutes.js";
 import { requireAdmin } from "./middleware/requireAdmin.js";
+import { requireAuth, optionalAuth } from "./middleware/auth.js";
 
 const app = express();
 
 // CORS dan parser JSON harus dipasang sebelum route.
 app.use(cors());
-app.use("/api", (req, res, next) => {
-  if (["GET", "HEAD", "OPTIONS"].includes(req.method)) return next();
-  requireAdmin(req, res, next);
-});
 app.use(express.json());
 app.use("/api", (req, res, next) => {
   if (["POST", "PUT"].includes(req.method) &&
@@ -20,6 +18,21 @@ app.use("/api", (req, res, next) => {
     return res.status(400).json({ error: "Body harus berupa objek JSON" });
   }
   next();
+});
+
+// Auth routes (public)
+app.use("/api/auth", authRoutes);
+
+// Optional auth for read endpoints (attach user if token present)
+app.use("/api", optionalAuth);
+
+// Write protection: accept either admin key or user JWT
+app.use("/api", (req, res, next) => {
+  if (["GET", "HEAD", "OPTIONS"].includes(req.method)) return next();
+  // If user is authenticated via JWT, allow
+  if (req.user) return next();
+  // Otherwise fall back to admin key check
+  requireAdmin(req, res, next);
 });
 
 app.get("/", (req, res) => {
