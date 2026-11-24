@@ -1,0 +1,5 @@
+{
+  "rewrites": [
+    { "source": "/api/auth/:path*", "destination": "https://ngesrep-7xy6.vercel.app/api/auth/:path*" }
+  ]
+}

@@ -24,6 +24,7 @@ Akronim: **N**ikmat, **G**ampang, **E**konomis, **S**ehat — **RE**sep **P**rak
 - Tips dapur: daftar tips dengan pencarian, plus detail tips dan "Tips Lainnya".
 - Favorit: tersimpan di `localStorage`, tetap tampil saat offline.
 - Profil: data pembuat dan penjelasan aplikasi.
+- Akun: buka **Profil → Akun · Masuk / Daftar** untuk mendaftar, masuk, atau keluar.
 - PWA: bisa di-install dan tetap menampilkan data yang pernah dibuka saat offline.
 
 ## Teknologi
@@ -66,9 +67,14 @@ PWA tidak mengakses Supabase secara langsung. Semua data lewat API sendiri.
 | PUT / DELETE | `/api/tips/:id` | Ubah / hapus tips |
 
 Format sukses: JSON langsung (array/objek). Format error: `{ "error": "pesan" }`.
-Semua `POST`, `PUT`, dan `DELETE` memerlukan header `Authorization: Bearer <ADMIN_API_KEY>`.
+Operasi tulis katalog memerlukan header `Authorization: Bearer <ADMIN_API_KEY>`.
 PWA tidak menyimpan atau mengirim kunci admin; gunakan hanya dari lingkungan tepercaya seperti
 Postman. Jika `ADMIN_API_KEY` belum disetel, endpoint tulis akan mengembalikan `503`.
+
+Akun pembaca tidak diberi izin tulis katalog. Endpoint akun: `POST /api/auth/register`,
+`POST /api/auth/login`, `GET /api/auth/me`, `POST /api/auth/refresh`, dan `POST /api/auth/logout`.
+PWA mengaksesnya melalui origin sendiri; sesi memakai cookie `HttpOnly`, bukan token di
+`localStorage`. Katalog tetap publik dan favorit tetap tersimpan per browser, bukan per akun.
 
 ## Cara Menjalankan Lokal
 
@@ -92,7 +98,7 @@ biarkan kosong bila API hanya dipakai untuk membaca.
 cd api
 npm install
 copy .env.example .env     # Windows (Linux/macOS: cp .env.example .env)
-# isi SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, dan ADMIN_API_KEY di .env
+# isi SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_PUBLISHABLE_KEY, dan ADMIN_API_KEY di .env
 npm run dev
 ```
 
@@ -108,8 +114,8 @@ npm install
 npm run build:css          # menghasilkan css/style.css
 ```
 
-Sajikan folder `pwa/` lewat server statis (contoh: ekstensi Live Server, atau
-`npx serve .`), lalu buka `http://localhost:8080`.
+Buka `http://localhost:3000/index.html` saat API lokal berjalan agar halaman akun dan
+endpoint sesi berada pada origin yang sama. Server statis terpisah tidak menangani login.
 
 `API_BASE_URL` di `pwa/js/config.js` menunjuk ke API produksi. Untuk pengembangan lokal,
 ubah ke `http://localhost:3000`. Gunakan HTTPS atau localhost agar penyimpanan favorit lintas tab tersedia.
@@ -135,6 +141,14 @@ Cara deploy ulang dari nol:
 3. **PWA ke Vercel:** import repository lagi, set Root Directory `pwa`, Framework Preset `Other`,
    tanpa build command (CSS sudah dikompilasi dan ikut di-commit).
 4. Buka URL PWA di HP, uji install dan mode offline.
+
+**Rilis akun:** isi `SUPABASE_PUBLISHABLE_KEY` (atau `SUPABASE_ANON_KEY`) pada proyek API,
+aktifkan provider Email di Supabase, dan atur Site URL ke URL PWA. Dengan konfirmasi email
+aktif, pembaca membuka tautan konfirmasi lalu kembali ke Profil → Akun untuk masuk.
+Jika alamat API berubah, sesuaikan juga tujuan rewrite di `pwa/vercel.json`.
+Endpoint akun meneruskan batas percobaan Supabase (`429`). Sebelum membuka pendaftaran umum,
+cek batas dan pengiriman email di Supabase serta aktifkan rate limit platform pada
+`/api/auth/login` dan `/api/auth/register`; jangan mengandalkan penghitung per proses Vercel.
 
 ## Struktur Folder
 

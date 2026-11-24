@@ -124,6 +124,7 @@ export async function profil(main) {
     </section>
 
     <section class="space-y-space-md pt-space-xs">
+      <a href="#/login" class="flex justify-center rounded-full bg-primary text-on-primary py-3 px-space-md font-label-lg text-label-lg">Akun · Masuk / Daftar</a>
       ${githubButton}
       <div class="text-center space-y-1">
         <div class="inline-flex items-center justify-center gap-1.5 px-3 py-1 rounded-full bg-surface-container text-on-surface-variant font-label-sm text-label-sm">

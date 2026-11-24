@@ -6,6 +6,7 @@ import { isNonNegativeInteger } from "../src/validation.js";
 
 test("HTTP reads, write authorization and input validation", async (t) => {
   const calls = [];
+  const authCalls = [];
   async function listen(server) {
     server.listen(0, "127.0.0.1");
     await once(server, "listening");
@@ -13,15 +14,30 @@ test("HTTP reads, write authorization and input validation", async (t) => {
     return `http://127.0.0.1:${server.address().port}`;
   }
   process.env.SUPABASE_URL = await listen(createServer(async (req, res) => {
-    calls.push([req.method, req.url, req.headers.apikey]);
-    // Auth endpoints: return 401 for getUser to simulate invalid token
-    if (req.url.includes("/auth/v1/user")) {
-      res.writeHead(401, { "Content-Type": "application/json" });
-      return res.end('{"message":"Invalid token"}');
-    }
     const chunks = [];
     for await (const chunk of req) chunks.push(chunk);
     const payload = JSON.parse(Buffer.concat(chunks).toString() || "{}");
+    if (req.url.startsWith("/auth/v1/")) {
+      authCalls.push([req.url, req.headers.apikey]);
+      const user = { id: "fixture", email: "tester@example.test" };
+      let data = { access_token: "reader-token", refresh_token: "refresh-token", expires_in: 3600, user };
+      let status = 200;
+      if (req.url.startsWith("/auth/v1/signup")) data = user;
+      if (req.url === "/auth/v1/user") data = user;
+      if (req.url.includes("grant_type=password") && payload.password !== "test-password") {
+        status = payload.password === "limited" ? 429 : 400;
+        data = { msg: "upstream detail" };
+      }
+      if (req.url.startsWith("/auth/v1/logout")) {
+        assert.equal(req.headers.authorization, "Bearer reader-token");
+        assert.match(req.url, /scope=local/);
+        res.writeHead(204);
+        return res.end();
+      }
+      res.writeHead(status, { "Content-Type": "application/json" });
+      return res.end(JSON.stringify(data));
+    }
+    calls.push([req.method, req.url, req.headers.apikey]);
     const missingCategory = payload.category_id === "00000000-0000-4000-8000-000000000002";
     res.writeHead(missingCategory ? 409 : 200, { "Content-Type": "application/json" });
     res.end(missingCategory ? '{"code":"23503"}' : req.method === "POST" ? '{"name":"Nasi"}' : '[{"name":"Nasi"}]');
@@ -29,6 +45,7 @@ test("HTTP reads, write authorization and input validation", async (t) => {
   process.env.VERCEL = "1";
   process.env.SUPABASE_KEY = "legacy-fixture";
   process.env.SUPABASE_SERVICE_ROLE_KEY = "service-fixture";
+  process.env.SUPABASE_PUBLISHABLE_KEY = "public-fixture";
   const { default: app } = await import("../src/index.js");
   const url = await listen(createServer(app));
   const id = "00000000-0000-4000-8000-000000000001";
@@ -39,7 +56,6 @@ test("HTTP reads, write authorization and input validation", async (t) => {
   });
   const key = "test-only";
   delete process.env.ADMIN_API_KEY;
-  // Tanpa Authorization header agar optionalAuth tidak mengisi req.user
   assert.equal((await request("POST", "recipes", { name: "Nasi" })).status, 503);
   process.env.ADMIN_API_KEY = key;
   for (const resource of ["categories", "recipes", "tips"]) {
@@ -61,17 +77,15 @@ test("HTTP reads, write authorization and input validation", async (t) => {
       }
     }
   }
-  // Hanya hitung panggilan ke database (bukan auth) - minimal 3 GET
-  const dbCalls = calls.filter(([, url]) => !url.includes("/auth/v1/user"));
-  assert.ok(dbCalls.length >= 3);
-  assert.ok(dbCalls.every(([method,, apiKey]) => method === "GET" && apiKey === "service-fixture"));
+  assert.equal(calls.length, 3);
+  assert.ok(calls.every(([method,, apiKey]) => method === "GET" && apiKey === "service-fixture"));
   assert.equal((await request("GET", "recipes?category_id=abc")).status, 400);
   for (const [method, path] of [["POST", "recipes"], ["PUT", `recipes/${id}`]]) {
     const result = await request(method, path, { name: "Nasi", category_id: "abc" }, key);
     assert.equal(result.status, 400);
     assert.deepEqual(await result.json(), { error: "category_id tidak valid" });
   }
-  // calls.length termasuk panggilan auth, jadi tidak dibandingkan exact
+  assert.equal(calls.length, 3);
   for (const [method, path] of [["POST", "recipes"], ["PUT", `recipes/${id}`]]) {
     const result = await request(method, path, { name: "Nasi", category_id: "00000000-0000-4000-8000-000000000002" }, key);
     assert.equal(result.status, 400);
@@ -89,6 +103,38 @@ test("HTTP reads, write authorization and input validation", async (t) => {
       assert.deepEqual(url.searchParams.getAll("id"), [`eq.${id}`]);
     }
   }
+
+  const credentials = { email: "tester@example.test", password: "test-password" };
+  assert.equal((await request("POST", "auth/login", { email: {}, password: "test-password" })).status, 400);
+  assert.equal((await request("POST", "auth/login", { ...credentials, password: "wrong" })).status, 401);
+  assert.equal((await request("POST", "auth/login", { ...credentials, password: "limited" })).status, 429);
+  const register = await request("POST", "auth/register", credentials);
+  assert.equal(register.status, 201);
+  assert.deepEqual(await register.json(), { needsConfirmation: true });
+  assert.equal(register.headers.get("set-cookie"), null);
+  const login = await request("POST", "auth/login", credentials);
+  assert.equal(login.status, 200);
+  assert.deepEqual(await login.json(), { email: credentials.email });
+  assert.equal(login.headers.get("cache-control"), "no-store");
+  const cookies = login.headers.getSetCookie();
+  assert.equal(cookies.length, 2);
+  assert.ok(cookies.every(cookie => ["Path=/api/auth", "HttpOnly", "Secure", "SameSite=Strict"]
+    .every(attribute => cookie.split("; ").includes(attribute))));
+  const cookie = cookies.map(value => value.split(";")[0]).join("; ");
+  const count = calls.length;
+  const authCount = authCalls.length;
+  assert.equal((await request("POST", "recipes", { name: "Nasi" }, "reader-token")).status, 401);
+  assert.equal((await fetch(`${url}/api/recipes`, { method: "POST", headers: { cookie, "Content-Type": "application/json" }, body: '{"name":"Nasi"}' })).status, 401);
+  assert.equal(calls.length, count);
+  assert.equal(authCalls.length, authCount);
+  const me = await fetch(`${url}/api/auth/me`, { headers: { cookie } });
+  assert.deepEqual(await me.json(), { email: credentials.email });
+  const renew = await fetch(`${url}/api/auth/refresh`, { method: "POST", headers: { cookie, "Content-Type": "application/json" }, body: "{}" });
+  assert.equal(renew.status, 200);
+  const logout = await fetch(`${url}/api/auth/logout`, { method: "POST", headers: { cookie, "Content-Type": "application/json" }, body: "{}" });
+  assert.equal(logout.status, 204);
+  assert.equal(logout.headers.getSetCookie().length, 2);
+  assert.ok(authCalls.every(([, apiKey]) => apiKey === "public-fixture"));
 });
 
 test("PostgreSQL integer bounds for prices and times", () => {

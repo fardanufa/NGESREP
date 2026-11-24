@@ -1,78 +1,97 @@
 import { Router } from "express";
 import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY
-);
-
 const router = Router();
+const path = "/api/auth";
+const week = 7 * 24 * 60 * 60 * 1000;
+const access = "ngesrep_access";
+const refresh = "ngesrep_refresh";
+const cookieOptions = (req) => ({
+  path, httpOnly: true, secure: Boolean(process.env.VERCEL) || req.secure, sameSite: "strict",
+});
+const cookie = (req, name) => (req.get("cookie") || "").split(";")
+  .map((part) => part.trim()).find((part) => part.startsWith(`${name}=`))?.slice(name.length + 1);
 
-router.post("/login", async (req, res) => {
-  const { email, password } = req.body || {};
-
-  if (!email || !password) {
-    return res.status(400).json({ error: "Email dan password wajib diisi" });
+function fail(res, error, message, status = 401) {
+  if (error?.status === 429) return res.status(429).json({ error: "Terlalu banyak percobaan. Coba lagi nanti." });
+  if (error && (!error.status || error.status >= 500)) {
+    return res.status(503).json({ error: "Layanan akun belum tersedia. Coba lagi nanti." });
   }
+  return res.status(status).json({ error: message });
+}
 
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
+function sendSession(req, res, session, status = 200) {
+  const options = cookieOptions(req);
+  res.cookie(access, session.access_token, { ...options, maxAge: session.expires_in * 1000 });
+  res.cookie(refresh, session.refresh_token, { ...options, maxAge: week });
+  return res.status(status).json({ email: session.user.email });
+}
 
-  if (error) {
-    return res.status(401).json({ error: error.message });
+router.use((req, res, next) => {
+  res.set("Cache-Control", "no-store");
+  if (req.method === "POST" && !req.is("application/json")) {
+    return res.status(415).json({ error: "Gunakan application/json" });
   }
-
-  res.json({
-    access_token: data.session.access_token,
-    refresh_token: data.session.refresh_token,
-    user: data.user,
-  });
+  const key = process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY;
+  if (!key) return res.status(503).json({ error: "Layanan akun belum dikonfigurasi." });
+  // A request-scoped client keeps user sessions out of the shared catalog client.
+  res.locals.auth = createClient(process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL, key, {
+    auth: { persistSession: false, autoRefreshToken: false, flowType: "pkce" },
+  }).auth;
+  next();
 });
 
-router.post("/register", async (req, res) => {
-  const { email, password } = req.body || {};
-
-  if (!email || !password) {
-    return res.status(400).json({ error: "Email dan password wajib diisi" });
-  }
-
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
+for (const action of ["login", "register"]) {
+  router.post(`/${action}`, async (req, res) => {
+    const { email, password } = req.body || {};
+    const registering = action === "register";
+    if (typeof email !== "string" || email.length > 254 || !/^[^\s@]+@[^\s@]+$/.test(email.trim()) ||
+        typeof password !== "string" || password.length > 256 || password.length < (registering ? 6 : 1)) {
+      return res.status(400).json({ error: "Periksa email dan password." });
+    }
+    const auth = res.locals.auth;
+    const credentials = { email: email.trim(), password };
+    const { data, error } = await (registering ? auth.signUp(credentials) : auth.signInWithPassword(credentials));
+    if (error) return fail(res, error, registering ? "Pendaftaran gagal. Periksa email dan password." :
+      error.code === "email_not_confirmed" ? "Konfirmasi email sebelum masuk." : "Email atau password salah.", registering ? 400 : 401);
+    if (data.session) return sendSession(req, res, data.session, registering ? 201 : 200);
+    if (!registering) return fail(res, null, "Sesi tidak tersedia.");
+    return res.status(201).json({ needsConfirmation: true });
   });
+}
 
-  if (error) {
-    return res.status(400).json({ error: error.message });
-  }
-
-  res.status(201).json({
-    message: "Registrasi berhasil. Silakan cek email untuk verifikasi.",
-    user: data.user,
-  });
+router.get("/me", async (req, res) => {
+  const token = cookie(req, access);
+  if (!token) return fail(res, null, "Silakan masuk.");
+  const { data, error } = await res.locals.auth.getUser(token);
+  if (error || !data.user) return fail(res, error, "Sesi berakhir.");
+  res.json({ email: data.user.email });
 });
 
 router.post("/refresh", async (req, res) => {
-  const { refresh_token } = req.body || {};
+  const token = cookie(req, refresh);
+  if (!token) return fail(res, null, "Silakan masuk.");
+  const { data, error } = await res.locals.auth.refreshSession({ refresh_token: token });
+  if (error || !data.session) return fail(res, error, "Sesi berakhir.");
+  return sendSession(req, res, data.session);
+});
 
-  if (!refresh_token) {
-    return res.status(400).json({ error: "Refresh token diperlukan" });
+router.post("/logout", async (req, res) => {
+  const auth = res.locals.auth;
+  const token = cookie(req, refresh);
+  let jwt = cookie(req, access);
+  if (!jwt && token) {
+    const { data, error } = await auth.refreshSession({ refresh_token: token });
+    if (error && ![400, 401, 403].includes(error.status)) return fail(res, error, "Gagal keluar.");
+    jwt = data.session?.access_token;
   }
-
-  const { data, error } = await supabase.auth.refreshSession({
-    refresh_token,
-  });
-
-  if (error) {
-    return res.status(401).json({ error: error.message });
+  if (jwt) {
+    const { error } = await auth.admin.signOut(jwt, "local");
+    if (error && ![401, 403, 404].includes(error.status)) return fail(res, error, "Gagal keluar.");
   }
-
-  res.json({
-    access_token: data.session.access_token,
-    refresh_token: data.session.refresh_token,
-    user: data.user,
-  });
+  res.clearCookie(access, cookieOptions(req));
+  res.clearCookie(refresh, cookieOptions(req));
+  res.sendStatus(204);
 });
 
 export default router;
