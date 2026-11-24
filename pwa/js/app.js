@@ -7,6 +7,11 @@ try {
 
 window.addEventListener("hashchange", renderRoute);
 
+// Tombol lompat ke konten tidak boleh mengubah hash rute.
+document.getElementById("skip-link").addEventListener("click", () => {
+  document.getElementById("app").focus();
+});
+
 // Hash kosong diarahkan ke Beranda.
 if (!location.hash) location.replace("#/beranda");
 else renderRoute();

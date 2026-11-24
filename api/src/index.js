@@ -28,6 +28,7 @@ app.use("/api", (req, res, next) => {
 app.use("/api/categories", categoryRoutes);
 app.use("/api/recipes", recipeRoutes);
 app.use("/api/tips", tipRoutes);
+app.use("/api", (req, res) => res.status(404).json({ error: "Endpoint tidak ditemukan" }));
 if (!process.env.VERCEL) {
   app.use(express.static(fileURLToPath(new URL("../../pwa/", import.meta.url)), { index: false }));
 }

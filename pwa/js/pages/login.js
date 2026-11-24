@@ -1,13 +1,14 @@
-import { esc, toast } from "../ui.js";
+import { esc, loadingBox, toast } from "../ui.js";
 
 const backLink = `<a href="#/beranda" class="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-primary text-on-primary font-label-lg shadow-sm hover:opacity-90 active:scale-95 transition-all">
-  <span class="material-symbols-outlined text-[20px]">arrow_back</span>Kembali ke Beranda</a>`;
+  <span aria-hidden="true" class="material-symbols-outlined text-[20px]">arrow_back</span>Kembali ke Beranda</a>`;
 
 function formHTML(mode) {
   const isLogin = mode === "login";
   return `
   <div class="max-w-md mx-auto px-gutter py-space-xl">
     <div class="text-center mb-8">
+      <img src="images/logo-full.png" alt="NGESREP" class="h-12 w-auto mx-auto mb-4 object-contain" onerror="this.remove()">
       <h1 class="font-headline-lg text-headline-lg text-on-surface font-bold">${isLogin ? "Masuk" : "Daftar"}</h1>
       <p class="font-body-md text-body-md text-on-surface-variant mt-2">
         ${isLogin ? "Masuk ke akun NGESREP" : "Buat akun NGESREP dengan email"}
@@ -15,25 +16,28 @@ function formHTML(mode) {
     </div>
 
     <form id="auth-form" class="bg-surface-container-lowest rounded-2xl p-space-lg shadow-sm space-y-4">
+      <p id="form-error" role="alert" class="hidden rounded-xl bg-error-container text-on-error-container px-3 py-2 font-body-sm text-body-sm"></p>
+
       <div>
         <label for="email" class="block font-label-md text-label-md text-on-surface mb-1">Email</label>
         <input type="email" id="email" name="email" required maxlength="254" autocomplete="username"
-          class="w-full px-4 py-3 rounded-xl bg-surface-container border border-outline text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+          class="w-full px-4 py-3 rounded-xl bg-surface-container border border-outline text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
           placeholder="contoh@email.com">
       </div>
 
       <div>
         <label for="password" class="block font-label-md text-label-md text-on-surface mb-1">Password</label>
-        <input type="password" id="password" name="password" required maxlength="256" ${isLogin ? "" : 'minlength="6"'} autocomplete="${isLogin ? 'current-password' : 'new-password'}"
-          class="w-full px-4 py-3 rounded-xl bg-surface-container border border-outline text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+        <input type="password" id="password" name="password" required maxlength="256" ${isLogin ? "" : 'minlength="6" aria-describedby="password-hint"'} autocomplete="${isLogin ? 'current-password' : 'new-password'}"
+          class="w-full px-4 py-3 rounded-xl bg-surface-container border border-outline text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
           placeholder="${isLogin ? 'Masukkan password' : 'Minimal 6 karakter'}">
+        ${!isLogin ? `<p id="password-hint" class="font-body-sm text-body-sm text-on-surface-variant mt-1">Minimal 6 karakter.</p>` : ""}
       </div>
 
       ${!isLogin ? `
       <div>
         <label for="confirmPassword" class="block font-label-md text-label-md text-on-surface mb-1">Konfirmasi Password</label>
-        <input type="password" id="confirmPassword" name="confirmPassword" required autocomplete="new-password"
-          class="w-full px-4 py-3 rounded-xl bg-surface-container border border-outline text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+        <input type="password" id="confirmPassword" name="confirmPassword" required minlength="6" autocomplete="new-password"
+          class="w-full px-4 py-3 rounded-xl bg-surface-container border border-outline text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
           placeholder="Ulangi password">
       </div>` : ""}
 
@@ -45,7 +49,7 @@ function formHTML(mode) {
 
     <p class="text-center font-body-md text-body-md text-on-surface-variant mt-4">
       ${isLogin ? "Belum punya akun?" : "Sudah punya akun?"}
-      <button type="button" id="toggle-mode" class="text-primary font-semibold ml-1">${isLogin ? "Daftar di sini" : "Masuk di sini"}</button>
+      <button type="button" id="toggle-mode" class="text-primary font-semibold ml-1 py-1">${isLogin ? "Daftar di sini" : "Masuk di sini"}</button>
     </p>
 
     <div class="mt-6 pt-4 border-t border-outline">
@@ -68,6 +72,22 @@ function showForm(main, mode, signal) {
   main.innerHTML = formHTML(mode);
   const form = main.querySelector("#auth-form");
   const toggle = main.querySelector("#toggle-mode");
+  const error = main.querySelector("#form-error");
+
+  function showError(message, field) {
+    error.textContent = message;
+    error.classList.remove("hidden");
+    form.querySelectorAll("input").forEach((input) => input.removeAttribute("aria-invalid"));
+    if (field) {
+      field.setAttribute("aria-invalid", "true");
+      field.focus();
+    }
+  }
+
+  form.addEventListener("input", () => {
+    error.classList.add("hidden");
+    form.querySelectorAll("[aria-invalid]").forEach((input) => input.removeAttribute("aria-invalid"));
+  });
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -78,7 +98,7 @@ function showForm(main, mode, signal) {
     const confirmPassword = formData.get("confirmPassword");
 
     if (mode === "register" && password !== confirmPassword) {
-      toast("Password tidak cocok");
+      showError("Password dan konfirmasi password tidak sama.", main.querySelector("#confirmPassword"));
       return;
     }
 
@@ -96,7 +116,7 @@ function showForm(main, mode, signal) {
       } else showAccount(main, data.email, signal);
     } catch (err) {
       if (signal.aborted) return;
-      toast(err.status ? err.message : "Tidak dapat menghubungi layanan akun.");
+      showError(err.status ? err.message : "Tidak dapat menghubungi layanan akun. Periksa koneksi lalu coba lagi.");
       btn.disabled = false;
       toggle.disabled = false;
       btn.textContent = mode === "login" ? "Masuk" : "Daftar";
@@ -110,6 +130,7 @@ function showForm(main, mode, signal) {
 }
 
 function showAccount(main, email, signal) {
+  document.title = "Akun · NGESREP";
   main.innerHTML = `<section class="w-full max-w-md mx-auto px-gutter py-space-xl space-y-4">
     <h1 class="font-headline-lg text-headline-lg">Akun NGESREP</h1>
     <p class="break-all">Masuk sebagai ${esc(email)}</p>
@@ -130,7 +151,7 @@ function showAccount(main, email, signal) {
 }
 
 export async function login(main, _id, signal) {
-  main.textContent = "Memeriksa sesi…";
+  main.innerHTML = loadingBox("Memeriksa sesi…");
   try {
     const data = await account("me", signal).catch((err) => {
       if (err.status !== 401) throw err;

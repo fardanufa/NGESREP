@@ -14,7 +14,7 @@ function techItem([icon, label]) {
   return `
   <div class="flex items-center gap-2 p-2 rounded-lg bg-surface-container-low">
     <div class="w-7 h-7 rounded-md bg-surface-container flex items-center justify-center shrink-0">
-      <span class="material-symbols-outlined text-[18px] text-primary">${icon}</span>
+      <span aria-hidden="true" class="material-symbols-outlined text-[18px] text-primary">${icon}</span>
     </div>
     <span class="font-label-md text-label-md text-on-surface truncate">${label}</span>
   </div>`;
@@ -24,7 +24,7 @@ export async function profil(main) {
   const githubButton = PROFILE.github.startsWith("http")
     ? `<a href="${esc(PROFILE.github)}" target="_blank" rel="noopener noreferrer"
         class="w-full flex items-center justify-center gap-2 py-3 px-space-md rounded-full bg-surface-container-high hover:bg-surface-container text-primary font-label-lg text-label-lg transition-transform active:scale-95 shadow-sm">
-        <span class="material-symbols-outlined text-[20px]">code</span>
+        <span aria-hidden="true" class="material-symbols-outlined text-[20px]">code</span>
         <span>Lihat di GitHub</span>
       </a>`
     : "";
@@ -32,8 +32,8 @@ export async function profil(main) {
   main.innerHTML = `
   <div class="flex flex-col w-full px-gutter md:px-6 max-w-4xl mx-auto gap-space-md pb-6">
     <div class="flex items-center gap-space-xs pt-space-xs">
-      <span class="material-symbols-outlined text-primary text-[20px]">badge</span>
-      <h1 class="font-headline-md text-headline-md text-on-surface">Profil &amp; Tentang</h1>
+      <span aria-hidden="true" class="material-symbols-outlined text-primary text-[20px]">badge</span>
+      <h1 class="font-headline-lg text-headline-lg text-on-surface">Profil &amp; Tentang</h1>
     </div>
 
     <section class="bg-surface-container-lowest rounded-xl p-space-md shadow-sm relative overflow-hidden">
@@ -42,12 +42,12 @@ export async function profil(main) {
         <div class="relative shrink-0">
           <div class="w-16 h-16 rounded-full bg-surface-container-high p-0.5 shadow-sm">
             <div class="w-full h-full rounded-full bg-primary-fixed flex items-center justify-center overflow-hidden relative">
-              <span class="material-symbols-outlined text-[36px] text-primary">account_circle</span>
+              <span aria-hidden="true" class="material-symbols-outlined text-[36px] text-primary">account_circle</span>
               <img src="${esc(PROFILE.foto)}" alt="Foto ${esc(PROFILE.nama)}" class="absolute inset-0 w-full h-full object-cover" onerror="this.remove()">
             </div>
           </div>
           <div class="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-primary text-on-primary flex items-center justify-center shadow">
-            <span class="material-symbols-outlined text-[14px]">school</span>
+            <span aria-hidden="true" class="material-symbols-outlined text-[14px]">school</span>
           </div>
         </div>
 
@@ -80,7 +80,7 @@ export async function profil(main) {
 
       <div class="p-space-sm rounded-lg bg-surface-container-low space-y-space-xs">
         <div class="flex items-start gap-space-xs">
-          <span class="material-symbols-outlined text-primary text-[18px] shrink-0 mt-0.5">location_on</span>
+          <span aria-hidden="true" class="material-symbols-outlined text-primary text-[18px] shrink-0 mt-0.5">location_on</span>
           <div>
             <span class="font-label-lg text-label-lg text-on-surface block">Asal Nama</span>
             <p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
@@ -92,7 +92,7 @@ export async function profil(main) {
       </div>
 
       <div class="p-space-sm rounded-lg bg-primary-fixed/40 flex items-start gap-space-xs">
-        <span class="material-symbols-outlined text-primary text-[18px] shrink-0 mt-0.5">auto_awesome</span>
+        <span aria-hidden="true" class="material-symbols-outlined text-primary text-[18px] shrink-0 mt-0.5">auto_awesome</span>
         <div>
           <span class="font-label-lg text-label-lg text-primary block">Akronim NGESREP</span>
           <p class="font-body-md text-body-md font-semibold text-on-surface mt-0.5">
@@ -108,13 +108,13 @@ export async function profil(main) {
 
     <section class="bg-surface-container-lowest rounded-xl p-space-md shadow-sm space-y-space-sm">
       <div class="flex items-center gap-space-xs">
-        <span class="material-symbols-outlined text-primary text-[20px]">code</span>
+        <span aria-hidden="true" class="material-symbols-outlined text-primary text-[20px]">code</span>
         <h3 class="font-headline-sm text-headline-sm text-on-surface">Teknologi Aplikasi</h3>
       </div>
       <div class="grid grid-cols-2 md:grid-cols-3 gap-space-sm pt-space-xs">${TECH.map(techItem).join("")}</div>
       <div class="flex items-center gap-space-sm p-space-sm rounded-lg bg-secondary-container/30 text-on-secondary-container mt-1">
         <div class="w-7 h-7 rounded-md bg-secondary-container flex items-center justify-center shrink-0">
-          <span class="material-symbols-outlined text-[18px] text-on-secondary-container">install_mobile</span>
+          <span aria-hidden="true" class="material-symbols-outlined text-[18px] text-on-secondary-container">install_mobile</span>
         </div>
         <div class="min-w-0">
           <span class="font-label-md text-label-md block font-semibold">Progressive Web App (PWA)</span>
@@ -133,7 +133,7 @@ export async function profil(main) {
         </div>
         <p class="font-body-sm text-body-sm text-on-surface-variant flex items-center justify-center gap-1">
           Dibuat dengan
-          <span class="material-symbols-outlined text-[14px] text-primary" style="font-variation-settings: 'FILL' 1;">favorite</span>
+          <span aria-hidden="true" class="material-symbols-outlined text-[14px] text-primary" style="font-variation-settings: 'FILL' 1;">favorite</span>
           untuk anak kos
         </p>
       </div>

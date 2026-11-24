@@ -38,6 +38,10 @@ test("HTTP reads, write authorization and input validation", async (t) => {
       return res.end(JSON.stringify(data));
     }
     calls.push([req.method, req.url, req.headers.apikey]);
+    if (req.url.includes("boom")) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      return res.end('{"message":"secret internals"}');
+    }
     const missingCategory = payload.category_id === "00000000-0000-4000-8000-000000000002";
     res.writeHead(missingCategory ? 409 : 200, { "Content-Type": "application/json" });
     res.end(missingCategory ? '{"code":"23503"}' : req.method === "POST" ? '{"name":"Nasi"}' : '[{"name":"Nasi"}]');
@@ -135,6 +139,15 @@ test("HTTP reads, write authorization and input validation", async (t) => {
   assert.equal(logout.status, 204);
   assert.equal(logout.headers.getSetCookie().length, 2);
   assert.ok(authCalls.every(([, apiKey]) => apiKey === "public-fixture"));
+
+  const failed = await request("GET", "recipes?search=boom");
+  assert.equal(failed.status, 500);
+  assert.deepEqual(await failed.json(), { error: "Terjadi kesalahan server" });
+  assert.equal((await request("GET", `recipes?search=${"a".repeat(101)}`)).status, 400);
+  assert.equal((await request("GET", `tips?search=${"a".repeat(101)}`)).status, 400);
+  const unknown = await request("GET", "tidak-ada");
+  assert.equal(unknown.status, 404);
+  assert.deepEqual(await unknown.json(), { error: "Endpoint tidak ditemukan" });
 });
 
 test("PostgreSQL integer bounds for prices and times", () => {

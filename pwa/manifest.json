@@ -1,11 +1,11 @@
 {
+  "id": "./",
   "name": "NGESREP",
   "short_name": "NGESREP",
   "description": "Aplikasi resep masakan anak kos hemat. Nikmat, Gampang, Ekonomis, Sehat.",
   "start_url": "./index.html#/beranda",
   "scope": "./",
   "display": "standalone",
-  "orientation": "portrait",
   "background_color": "#fff8f6",
   "theme_color": "#a23a00",
   "lang": "id",

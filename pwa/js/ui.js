@@ -14,7 +14,8 @@ export function imgSrc(path) {
 
 // Gambar dengan cadangan placeholder bila gagal dimuat.
 export function imgTag(path, alt, className = "", loading = "lazy") {
-  return `<img src="${esc(imgSrc(path))}" alt="${esc(alt)}" loading="${loading}" class="${className}" onerror="this.onerror=null;this.src='images/placeholder.svg'">`;
+  const priority = loading === "eager" ? ' fetchpriority="high"' : "";
+  return `<img src="${esc(imgSrc(path))}" alt="${esc(alt)}" loading="${loading}"${priority} decoding="async" class="${className}" onerror="this.onerror=null;this.src='images/placeholder.svg'">`;
 }
 
 export function skeletonList(count = 3) {
@@ -32,12 +33,20 @@ export function skeletonList(count = 3) {
   ).join("");
 }
 
+// Keadaan memuat untuk halaman detail dan sesi.
+export function loadingBox(label) {
+  return `<div role="status" class="flex flex-col items-center justify-center gap-3 py-16 px-4 text-on-surface-variant">
+    <span aria-hidden="true" class="material-symbols-outlined text-[28px] motion-safe:animate-spin">progress_activity</span>
+    <p class="font-body-md text-body-md">${esc(label)}</p>
+  </div>`;
+}
+
 // Kotak keadaan kosong / error / tidak ditemukan. `action` adalah HTML tombol (opsional).
 export function stateBox(icon, title, text, action = "") {
   return `
   <div class="flex flex-col items-center justify-center text-center py-12 px-4 bg-surface-container-lowest rounded-2xl shadow-sm">
     <div class="w-20 h-20 rounded-full bg-surface-container flex items-center justify-center text-primary mb-4">
-      <span class="material-symbols-outlined text-[40px]">${esc(icon)}</span>
+      <span aria-hidden="true" class="material-symbols-outlined text-[40px]">${esc(icon)}</span>
     </div>
     <h2 class="font-headline-sm text-headline-sm text-on-surface mb-2">${esc(title)}</h2>
     <p class="font-body-md text-body-md text-on-surface-variant max-w-xs mb-6">${esc(text)}</p>
@@ -47,7 +56,7 @@ export function stateBox(icon, title, text, action = "") {
 
 export function retryButton() {
   return `<button type="button" data-retry class="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-primary text-on-primary font-label-lg shadow-sm hover:opacity-90 active:scale-95 transition-all">
-    <span class="material-symbols-outlined text-[20px]">refresh</span>Coba Lagi</button>`;
+    <span aria-hidden="true" class="material-symbols-outlined text-[20px]">refresh</span>Coba Lagi</button>`;
 }
 
 export function toast(message) {

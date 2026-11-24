@@ -21,12 +21,16 @@ export function getFavorites() {
 }
 
 function changeList(edit) {
-  return navigator.locks.request(KEY, () => {
+  const run = () => {
     const list = readList();
     const result = edit(list);
     localStorage.setItem(KEY, JSON.stringify(list));
     return result;
-  });
+  };
+  // Web Locks hanya ada di secure context; tanpa itu simpan langsung.
+  return globalThis.navigator?.locks?.request
+    ? navigator.locks.request(KEY, run)
+    : Promise.resolve().then(run);
 }
 
 export function isFavorite(id) {

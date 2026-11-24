@@ -1,19 +1,19 @@
 import { getRecipe } from "../api.js";
-import { esc, imgTag, rupiah, stateBox, retryButton, toast } from "../ui.js";
+import { esc, imgTag, loadingBox, rupiah, stateBox, retryButton, toast } from "../ui.js";
 import { isFavorite, removeFavorite, saveFavorite } from "../favorites.js";
 
 const backLink = `<a href="#/beranda" class="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-primary text-on-primary font-label-lg shadow-sm hover:opacity-90 active:scale-95 transition-all">
-  <span class="material-symbols-outlined text-[20px]">arrow_back</span>Kembali ke Beranda</a>`;
+  <span aria-hidden="true" class="material-symbols-outlined text-[20px]">arrow_back</span>Kembali ke Beranda</a>`;
 
 function ingredientItem(text) {
   return `
   <label class="ingredient-item flex items-center gap-3 p-3 rounded-2xl bg-surface-container-lowest shadow-sm cursor-pointer select-none transition-all active:scale-[0.99]">
     <input class="ingredient-checkbox sr-only peer" type="checkbox">
     <div class="checkbox-indicator peer-focus-visible:ring-2 peer-focus-visible:ring-primary w-6 h-6 rounded-lg bg-surface-container-high flex items-center justify-center text-transparent transition-all shrink-0">
-      <span class="material-symbols-outlined text-[16px] font-bold">check</span>
+      <span aria-hidden="true" class="material-symbols-outlined text-[16px] font-bold">check</span>
     </div>
     <span class="ingredient-text font-body-md text-body-md text-on-surface flex-1">${esc(text)}</span>
-    <span class="material-symbols-outlined text-surface-dim text-[18px]">restaurant</span>
+    <span aria-hidden="true" class="material-symbols-outlined text-surface-dim text-[18px]">restaurant</span>
   </label>`;
 }
 
@@ -31,13 +31,13 @@ function view(recipe) {
   return `
   <div class="flex flex-col w-full pb-space-lg md:max-w-5xl md:mx-auto">
     <div class="relative w-full px-space-md pt-space-xs md:px-8">
-      <div class="relative w-full aspect-[4/3] rounded-3xl overflow-hidden shadow-lg bg-surface-container">
+      <div class="relative w-full aspect-[4/3] md:aspect-[16/9] md:max-w-3xl md:mx-auto rounded-3xl overflow-hidden shadow-lg bg-surface-container">
         ${imgTag(recipe.image_url, recipe.name, "w-full h-full object-cover", "eager")}
         <div class="absolute inset-0 bg-gradient-to-t from-inverse-surface/80 via-transparent to-black/20"></div>
 
         <div class="absolute top-3 right-3 z-10">
           <button type="button" data-fav aria-label="Simpan ke favorit" class="w-11 h-11 rounded-full bg-surface-container-lowest/90 backdrop-blur-md flex items-center justify-center shadow-md active:scale-95 transition-all">
-            <span class="material-symbols-outlined text-[22px]">favorite</span>
+            <span aria-hidden="true" class="material-symbols-outlined text-[22px]">favorite</span>
           </button>
         </div>
 
@@ -45,7 +45,7 @@ function view(recipe) {
           category
             ? `<div class="absolute bottom-3 left-3 right-3">
                 <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-inverse-surface/60 backdrop-blur-md rounded-full text-on-primary font-label-sm text-label-sm">
-                  <span class="material-symbols-outlined text-[15px] text-secondary-fixed">outdoor_grill</span>${esc(category)}
+                  <span aria-hidden="true" class="material-symbols-outlined text-[15px] text-secondary-fixed">outdoor_grill</span>${esc(category)}
                 </span>
               </div>`
             : ""
@@ -63,11 +63,11 @@ function view(recipe) {
 
       <div class="flex flex-wrap items-center gap-2 mb-6">
         <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-secondary-container text-on-secondary-container font-label-md text-label-md">
-          <span class="material-symbols-outlined text-[16px]">payments</span>
+          <span aria-hidden="true" class="material-symbols-outlined text-[16px]">payments</span>
           <span>${rupiah(recipe.cost_estimate)} / porsi</span>
         </div>
         <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface-container-high text-on-surface-variant font-label-md text-label-md">
-          <span class="material-symbols-outlined text-[16px] text-primary">schedule</span>
+          <span aria-hidden="true" class="material-symbols-outlined text-[16px] text-primary">schedule</span>
           <span>${Number(recipe.cook_time) || 0} menit</span>
         </div>
       </div>
@@ -139,6 +139,8 @@ function mount(main, recipe) {
 
   paint();
   favButton.addEventListener("click", async () => {
+    if (favButton.disabled) return;
+    favButton.disabled = true;
     try {
       const save = !active;
       if (save) await saveFavorite(recipe);
@@ -146,16 +148,19 @@ function mount(main, recipe) {
       active = save;
       paint();
     } catch {
-      toast("Perubahan favorit tidak tersimpan.");
+      toast("Favorit tidak tersimpan. Penyimpanan browser penuh atau diblokir.");
+    } finally {
+      favButton.disabled = false;
     }
   });
 }
 
 export async function detailResep(main, id, signal) {
-  main.textContent = "Memuat resep…";
+  main.innerHTML = loadingBox("Memuat resep…");
   try {
     const recipe = await getRecipe(id, signal);
     if (signal.aborted) return;
+    document.title = `${recipe.name} · NGESREP`;
     main.innerHTML = view(recipe);
     mount(main, recipe);
   } catch (err) {

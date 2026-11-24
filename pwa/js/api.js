@@ -4,6 +4,7 @@ import { toast } from "./ui.js";
 // Semua permintaan ke API lewat helper ini.
 
 const CACHE_PREFIX = "ngesrep_cache";
+const TIMEOUT_MS = 12000;
 
 async function request(path, id, signal) {
   const key = CACHE_PREFIX + path;
@@ -11,21 +12,33 @@ async function request(path, id, signal) {
   const row = (item) => typeof item?.id === "string" && typeof item[label] === "string";
   const valid = (data) => id === undefined ? Array.isArray(data) && data.every(row) : row(data) && data.id.toLowerCase() === id.toLowerCase();
   let res;
+  let timedOut = false;
+  const controller = new AbortController();
+  const timer = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, TIMEOUT_MS);
+  const abort = () => controller.abort();
+  signal?.addEventListener("abort", abort, { once: true });
 
   try {
-    res = await fetch(`${API_BASE_URL}${path}`, { signal });
+    signal?.throwIfAborted();
+    res = await fetch(`${API_BASE_URL}${path}`, { signal: controller.signal });
   } catch (err) {
     if (signal?.aborted) throw err;
     try {
       const cached = JSON.parse(localStorage.getItem(key));
       if (valid(cached)) {
-        toast("Kamu sedang offline. Menampilkan data tersimpan.");
+        toast(timedOut ? "Koneksi lambat. Menampilkan data tersimpan." : "Kamu sedang offline. Menampilkan data tersimpan.");
         return cached;
       }
     } catch {
       // Penyimpanan tidak tersedia atau isinya rusak.
     }
     throw err;
+  } finally {
+    clearTimeout(timer);
+    signal?.removeEventListener("abort", abort);
   }
   signal?.throwIfAborted();
 

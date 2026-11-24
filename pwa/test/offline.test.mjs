@@ -137,3 +137,33 @@ test("a late response from an earlier visit cannot replace the same tip", async 
   assert.match(main.innerHTML, /Fresh/);
   assert.doesNotMatch(main.innerHTML, />Old</);
 });
+
+test("favorites still save when Web Locks is unavailable", async () => {
+  let saved = null;
+  Object.defineProperty(globalThis, "localStorage", { configurable: true, value: {
+    getItem: () => saved, setItem: (_key, value) => { saved = value; },
+  } });
+  Object.defineProperty(globalThis, "navigator", { configurable: true, value: {} });
+  const recipe = { id: "r", name: "Nasi" };
+  await saveFavorite(recipe);
+  assert.deepEqual(getFavorites(), [recipe]);
+  await removeFavorite("r");
+  assert.deepEqual(getFavorites(), []);
+});
+
+test("a slow API falls back to the cached copy after the timeout", async (t) => {
+  const data = new Map([["ngesrep_cache/api/recipes", JSON.stringify([{ id: "r", name: "Nasi" }])]]);
+  Object.defineProperty(globalThis, "localStorage", { configurable: true, value: {
+    getItem: key => data.get(key) ?? null, setItem: (key, value) => data.set(key, value),
+  } });
+  const status = { replaceChildren(el) { this.message = el.textContent; } };
+  globalThis.document = { createElement: () => ({}), getElementById: id => id === "app-status" && status };
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  t.mock.method(globalThis, "fetch", (_url, options) => new Promise((_, reject) => {
+    options.signal.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")));
+  }));
+  const pending = getRecipes();
+  t.mock.timers.tick(12000);
+  assert.deepEqual(await pending, [{ id: "r", name: "Nasi" }]);
+  assert.match(status.message, /lambat/);
+});

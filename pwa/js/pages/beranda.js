@@ -1,18 +1,18 @@
 import { getCategories, getRecipes } from "../api.js";
 import { esc, imgTag, rupiah, skeletonList, stateBox, retryButton } from "../ui.js";
 
-function card(recipe) {
+function card(recipe, priority = false) {
   return `
   <a href="#/resep/${esc(recipe.id)}" class="block bg-surface-container-lowest rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-200">
     <div class="relative w-full aspect-[16/10] overflow-hidden bg-surface-container">
-      ${imgTag(recipe.image_url, recipe.name, "w-full h-full object-cover")}
+      ${imgTag(recipe.image_url, recipe.name, "w-full h-full object-cover", priority ? "eager" : "lazy")}
       <div class="absolute top-3 left-3">
         <span class="bg-secondary-fixed/90 backdrop-blur-md text-on-secondary-fixed font-label-sm text-label-sm px-2.5 py-1 rounded-full font-bold shadow-sm">${rupiah(recipe.cost_estimate)} / porsi</span>
       </div>
     </div>
     <div class="p-space-md flex flex-col gap-2">
       <div class="flex items-center gap-1 text-on-surface-variant font-label-md text-label-md">
-        <span class="material-symbols-outlined text-[16px] text-primary">timer</span>${Number(recipe.cook_time) || 0} menit
+        <span aria-hidden="true" class="material-symbols-outlined text-[16px] text-primary">timer</span>${Number(recipe.cook_time) || 0} menit
       </div>
       <h2 class="font-headline-sm text-headline-sm text-on-surface font-bold">${esc(recipe.name)}</h2>
       <p class="font-body-sm text-body-sm text-on-surface-variant line-clamp-2 leading-relaxed">${esc(recipe.description || "")}</p>
@@ -41,7 +41,7 @@ export async function beranda(main, _id, signal) {
 
   <section class="px-gutter pb-space-sm">
     <div class="relative flex items-center w-full bg-surface-container-lowest rounded-full shadow-sm focus-within:outline focus-within:outline-2 focus-within:outline-primary">
-      <span class="material-symbols-outlined text-outline ml-space-md text-[22px]">search</span>
+      <span aria-hidden="true" class="material-symbols-outlined text-outline ml-space-md text-[22px]">search</span>
       <input id="recipe-search" type="search" aria-label="Cari resep atau bahan" placeholder="Cari resep atau bahan..."
         class="w-full bg-transparent py-3 pl-space-xs pr-space-md text-on-surface placeholder:text-on-surface-variant font-body-md text-body-md focus:outline-none">
     </div>
@@ -53,8 +53,8 @@ export async function beranda(main, _id, signal) {
 
   <section class="px-gutter flex flex-col gap-space-md pb-space-lg">
     <div>
-      <h1 class="font-headline-sm text-headline-sm text-on-surface font-bold">Semua Resep</h1>
-      <p class="font-body-sm text-body-sm text-on-surface-variant">Daftar resep praktis dan hemat untuk anak kos</p>
+      <h1 class="font-headline-lg text-headline-lg text-on-surface font-bold">Resep Anak Kos</h1>
+      <p data-count aria-live="polite" class="font-body-sm text-body-sm text-on-surface-variant">Memuat resep…</p>
     </div>
     <div id="recipe-list" class="flex flex-col gap-space-md md:grid md:grid-cols-2 xl:grid-cols-3">${skeletonList(3)}</div>
   </section>`;
@@ -82,8 +82,14 @@ export async function beranda(main, _id, signal) {
   function draw() {
     if (!recipes) return;
     const items = filtered();
+    const count = main.querySelector("[data-count]");
+    if (count) {
+      count.textContent = items.length
+        ? `${items.length} resep ${query || category !== "all" ? "ditemukan" : "praktis dan hemat"}`
+        : "Tidak ada resep yang cocok";
+    }
     list.innerHTML = items.length
-      ? items.map(card).join("")
+      ? items.map((recipe, index) => card(recipe, index === 0)).join("")
       : stateBox("search_off", "Resep tidak ditemukan", "Coba kata kunci lain atau pilih kategori Semua.");
   }
 

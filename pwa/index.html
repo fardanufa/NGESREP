@@ -10,16 +10,18 @@
   <link rel="icon" type="image/png" href="icons/icon-192.png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <link rel="preload" href="fonts/plus-jakarta-sans.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="fonts/material-symbols.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="css/fonts.css">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body class="bg-surface font-body-md text-on-surface antialiased">
+  <button type="button" id="skip-link" class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[80] focus:px-4 focus:py-2 focus:rounded-full focus:bg-primary focus:text-on-primary focus:font-label-lg">Lewati ke konten</button>
   <header id="app-header" class="fixed top-0 w-full z-50 pt-safe bg-surface/80 backdrop-blur-xl shadow-[0_1px_8px_rgba(40,24,15,0.04)]"></header>
 
-  <main id="app" class="flex flex-col relative w-full max-w-[480px] md:max-w-6xl mx-auto pt-16 pb-24 md:pb-28 bg-surface min-h-screen"></main>
+  <main id="app" tabindex="-1" class="flex flex-col relative w-full max-w-[480px] md:max-w-6xl mx-auto pt-16 pb-nav md:pb-28 bg-surface min-h-screen"></main>
 
   <nav id="bottom-nav" class="hidden fixed bottom-0 w-full z-50 pb-safe bg-surface/90 backdrop-blur-xl shadow-[0_-4px_20px_rgba(40,24,15,0.05)]">
-    <div class="h-16 px-gutter max-w-[480px] md:max-w-6xl mx-auto flex items-center justify-around md:justify-center md:gap-8">
+    <div class="min-h-16 px-gutter max-w-[480px] md:max-w-6xl mx-auto flex items-center justify-around md:justify-center md:gap-8">
       <a href="#/beranda" data-tab="beranda" class="flex flex-col items-center justify-center min-w-[64px] min-h-[44px] px-space-sm py-space-xs rounded-full text-on-surface-variant transition-colors">
         <span aria-hidden="true" class="material-symbols-outlined text-[24px]">soup_kitchen</span>
         <span class="font-label-md text-label-md">Beranda</span>

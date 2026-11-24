@@ -1,8 +1,8 @@
 import { getTip, getTips } from "../api.js";
-import { esc, imgTag, stateBox, retryButton } from "../ui.js";
+import { esc, imgTag, loadingBox, stateBox, retryButton } from "../ui.js";
 
 const backLink = `<a href="#/tips" class="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-primary text-on-primary font-label-lg shadow-sm hover:opacity-90 active:scale-95 transition-all">
-  <span class="material-symbols-outlined text-[20px]">arrow_back</span>Kembali ke Tips</a>`;
+  <span aria-hidden="true" class="material-symbols-outlined text-[20px]">arrow_back</span>Kembali ke Tips</a>`;
 
 function otherCard(tip) {
   return `
@@ -13,7 +13,7 @@ function otherCard(tip) {
     <div class="flex flex-col min-w-0 flex-1 justify-center gap-0.5">
       <h3 class="font-headline-sm text-headline-sm text-on-surface line-clamp-2 leading-snug font-bold">${esc(tip.title)}</h3>
       <span class="font-body-sm text-body-sm text-primary flex items-center gap-0.5 mt-0.5 font-semibold">
-        Baca tips <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
+        Baca selengkapnya <span aria-hidden="true" class="material-symbols-outlined text-[14px]">arrow_forward</span>
       </span>
     </div>
   </a>`;
@@ -41,7 +41,7 @@ function view(tip) {
       ${
         tip.highlight
           ? `<div class="flex items-start gap-2 p-space-md rounded-2xl bg-secondary-container/40 text-on-secondary-container">
-              <span class="material-symbols-outlined text-[20px] text-secondary shrink-0">savings</span>
+              <span aria-hidden="true" class="material-symbols-outlined text-[20px] text-secondary shrink-0">savings</span>
               <div>
                 <p class="font-label-lg text-label-lg font-bold mb-1">Catatan Hemat Anak Kos</p>
                 <p class="font-body-sm text-body-sm leading-relaxed">${esc(tip.highlight)}</p>
@@ -56,10 +56,11 @@ function view(tip) {
 }
 
 export async function detailTips(main, id, signal) {
-  main.textContent = "Memuat tips…";
+  main.innerHTML = loadingBox("Memuat tips…");
   try {
     const tip = await getTip(id, signal);
     if (signal.aborted) return;
+    document.title = `${tip.title} · NGESREP`;
     main.innerHTML = view(tip);
     const section = main.querySelector("[data-others]");
     try {

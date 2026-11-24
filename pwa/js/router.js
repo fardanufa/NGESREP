@@ -12,12 +12,12 @@ const nav = document.getElementById("bottom-nav");
 
 // Daftar rute hash. Rute detail memakai stack (tanpa bottom nav).
 const ROUTES = [
-  { re: /^\/beranda\/?$/, page: beranda, tab: "beranda" },
+  { re: /^\/beranda\/?$/, page: beranda, tab: "beranda", title: "Beranda" },
   { re: /^\/resep\/([^/]+)$/, page: detailResep, title: "Detail Resep", back: "#/beranda" },
-  { re: /^\/tips\/?$/, page: tips, tab: "tips" },
+  { re: /^\/tips\/?$/, page: tips, tab: "tips", title: "Tips Dapur" },
   { re: /^\/tips\/([^/]+)$/, page: detailTips, title: "Detail Tips", back: "#/tips" },
-  { re: /^\/favorit\/?$/, page: favorit, tab: "favorit" },
-  { re: /^\/profil\/?$/, page: profil, tab: "profil" },
+  { re: /^\/favorit\/?$/, page: favorit, tab: "favorit", title: "Favorit" },
+  { re: /^\/profil\/?$/, page: profil, tab: "profil", title: "Profil" },
   { re: /^\/login\/?$/, page: login, title: "Masuk / Daftar", back: "#/beranda" },
 ];
 
@@ -37,7 +37,7 @@ function drawHeader(route) {
   header.innerHTML = `
     <div class="h-16 px-gutter md:px-6 max-w-[480px] md:max-w-6xl mx-auto flex items-center gap-2">
       <button type="button" data-back aria-label="Kembali" class="w-11 h-11 flex items-center justify-center rounded-full text-on-surface hover:bg-surface-container transition-colors">
-        <span class="material-symbols-outlined text-[24px]">arrow_back</span>
+        <span aria-hidden="true" class="material-symbols-outlined text-[24px]">arrow_back</span>
       </button>
       <span class="font-headline-sm text-headline-sm text-on-surface truncate">${route.title}</span>
     </div>`;
@@ -65,9 +65,11 @@ function markActiveTab(tab) {
 }
 
 let visit;
+let firstRender = true;
 export async function renderRoute() {
   visit?.abort();
-  visit = new AbortController();
+  const controller = new AbortController();
+  visit = controller;
   const path = (location.hash || "#/beranda").replace(/^#/, "");
 
   let matched = null;
@@ -85,10 +87,16 @@ export async function renderRoute() {
   }
 
   const { route, params } = matched;
+  document.title = `${route.title} · NGESREP`;
   drawHeader(route);
   nav.classList.toggle("hidden", !route.tab);
   markActiveTab(route.tab);
   window.scrollTo(0, 0);
 
-  await route.page(main, params[1], visit.signal);
+  await route.page(main, params[1], controller.signal);
+  if (controller.signal.aborted) return;
+
+  // Pindahkan fokus ke konten baru supaya pengguna keyboard/screen reader tidak tersesat.
+  if (!firstRender) main.focus({ preventScroll: true });
+  firstRender = false;
 }
