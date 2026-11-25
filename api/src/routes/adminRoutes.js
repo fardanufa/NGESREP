@@ -17,9 +17,10 @@ const signature = (value, key) => createHmac("sha256", key).update(`ngesrep-admi
 router.use((req, res, next) => {
   res.set("Cache-Control", "no-store");
   const origin = req.get("origin");
-  const allowed = process.env.ADMIN_ORIGIN || (process.env.VERCEL
-    ? "https://ngesrep.vercel.app" : `http://localhost:${process.env.PORT || 3000}`);
-  if ((req.method === "POST" || req.method === "PUT" || req.method === "DELETE") && origin !== allowed) {
+  const allowed = (process.env.ADMIN_ORIGIN || (process.env.VERCEL
+    ? "https://ngesrep.vercel.app,https://ngesrep-pwa.vercel.app"
+    : `http://localhost:${process.env.PORT || 3000}`)).split(",").map((s) => s.trim());
+  if (["POST", "PUT", "DELETE"].includes(req.method) && !allowed.includes(origin)) {
     return res.status(403).json({ error: "Buka Kelola Katalog dari alamat NGESREP yang resmi." });
   }
   const key = process.env.ADMIN_API_KEY;
