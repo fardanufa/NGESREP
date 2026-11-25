@@ -6,11 +6,13 @@ import recipeRoutes from "./routes/recipeRoutes.js";
 import tipRoutes from "./routes/tipRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import { requireAdmin } from "./middleware/requireAdmin.js";
+import adminRoutes from "./routes/adminRoutes.js";
 
 const app = express();
 
 // CORS dan parser JSON harus dipasang sebelum route.
 app.use("/api/auth", express.json({ limit: "8kb" }), authRoutes);
+app.use("/api/admin", adminRoutes);
 app.use(cors());
 app.use("/api", (req, res, next) => {
   if (["GET", "HEAD", "OPTIONS"].includes(req.method)) return next();
@@ -30,7 +32,7 @@ app.use("/api/recipes", recipeRoutes);
 app.use("/api/tips", tipRoutes);
 app.use("/api", (req, res) => res.status(404).json({ error: "Endpoint tidak ditemukan" }));
 if (!process.env.VERCEL) {
-  app.use(express.static(fileURLToPath(new URL("../../pwa/", import.meta.url)), { index: false }));
+  app.use(express.static(fileURLToPath(new URL("../../pwa/", import.meta.url))));
 }
 app.get("/", (req, res) => res.json({ message: "API NGESREP berjalan" }));
 

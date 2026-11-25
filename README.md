@@ -67,9 +67,24 @@ PWA tidak mengakses Supabase secara langsung. Semua data lewat API sendiri.
 | PUT / DELETE | `/api/tips/:id` | Ubah / hapus tips |
 
 Format sukses: JSON langsung (array/objek). Format error: `{ "error": "pesan" }`.
-Operasi tulis katalog memerlukan header `Authorization: Bearer <ADMIN_API_KEY>`.
-PWA tidak menyimpan atau mengirim kunci admin; gunakan hanya dari lingkungan tepercaya seperti
-Postman. Jika `ADMIN_API_KEY` belum disetel, endpoint tulis akan mengembalikan `503`.
+Endpoint katalog langsung tetap membaca secara publik. Operasi tulis langsung (mis. Postman)
+memerlukan `Authorization: Bearer <ADMIN_API_KEY>`. Jika kunci belum disetel, operasi tulis
+mengembalikan `503`.
+
+### Kelola Katalog
+
+Buka **Profil → Kelola Katalog**, masukkan kunci admin, lalu pilih Resep, Tips, atau Kategori
+untuk menambah, mengubah, dan menghapus data. Aplikasi mengirim kunci sekali saat masuk
+dan tidak menyimpannya di penyimpanan browser. Server memberi cookie `HttpOnly` yang berlaku
+satu jam. Akun pembaca tidak mendapat sesi ini. Gunakan **Keluar admin** setelah selesai.
+Penghapusan kategori tidak menghapus resep; resep terkait menjadi tanpa kategori.
+
+Foto resep dan tips diunggah lewat API ke Supabase Storage. Siapkan bucket publik bernama
+`resep` pada **proyek pengujian** terlebih dahulu; izinkan JPEG, PNG, dan WebP hingga 2 MB.
+Jangan beri kebijakan tulis Storage kepada pengguna biasa. API menggunakan service role
+yang tidak dikirim ke browser. Foto dalam bucket publik dapat dibuka siapa pun yang punya
+URL-nya. Untuk versi ini, bersihkan foto lama atau unggahan yang tidak terpakai secara manual
+setelah memastikan foto tidak lagi dirujuk katalog.
 
 Akun pembaca tidak diberi izin tulis katalog. Endpoint akun: `POST /api/auth/register`,
 `POST /api/auth/login`, `GET /api/auth/me`, `POST /api/auth/refresh`, dan `POST /api/auth/logout`.
@@ -104,8 +119,8 @@ npm run dev
 ```
 
 API jalan di `http://localhost:3000`. Cek dengan membuka `http://localhost:3000/api/recipes`.
-Untuk request tulis lokal, kirim header `Authorization: Bearer <ADMIN_API_KEY>`. Jangan masukkan
-kunci service-role atau admin ke kode PWA, Git, atau browser.
+Untuk request tulis langsung, kirim header `Authorization: Bearer <ADMIN_API_KEY>`.
+Jangan masukkan kunci service-role atau admin ke kode PWA atau Git.
 
 ### 3. PWA
 
@@ -116,7 +131,7 @@ npm run build:css          # menghasilkan css/style.css
 ```
 
 Buka `http://localhost:3000/index.html` saat API lokal berjalan agar halaman akun dan
-endpoint sesi berada pada origin yang sama. Server statis terpisah tidak menangani login.
+Kelola Katalog berada pada origin yang sama. Server statis terpisah tidak menangani login.
 
 `API_BASE_URL` di `pwa/js/config.js` menunjuk ke API produksi. Untuk pengembangan lokal,
 ubah ke `http://localhost:3000`. Gunakan HTTPS atau localhost agar penyimpanan favorit lintas tab tersedia.
@@ -127,7 +142,7 @@ Aplikasi ini sudah ter-deploy dan berjalan:
 
 | Layanan | URL |
 |---|---|
-| PWA | https://ngesrep-pwa.vercel.app |
+| PWA | https://ngesrep.vercel.app |
 | API (Vercel) | https://ngesrep-7xy6.vercel.app |
 
 Cara deploy ulang dari nol:
@@ -147,6 +162,11 @@ Cara deploy ulang dari nol:
 aktifkan provider Email di Supabase, dan atur Site URL ke URL PWA. Dengan konfirmasi email
 aktif, pembaca membuka tautan konfirmasi lalu kembali ke Profil → Akun untuk masuk.
 Jika alamat API berubah, sesuaikan juga tujuan rewrite di `pwa/vercel.json`.
+Kelola Katalog menerima request tulis hanya dari `https://ngesrep.vercel.app` di Vercel
+secara bawaan. Untuk domain lain, set `ADMIN_ORIGIN` pada proyek API ke origin PWA
+yang tepat (tanpa garis miring penutup). Sebelum mengaktifkan fitur di produksi,
+siapkan bucket `resep` dengan pengaturan di atas dan terapkan rate limit platform
+pada `POST /api/admin/session`. Jangan arahkan pengujian CRUD ke database produksi.
 Endpoint akun meneruskan batas percobaan Supabase (`429`). Sebelum membuka pendaftaran umum,
 cek batas dan pengiriman email di Supabase serta aktifkan rate limit platform pada
 `/api/auth/login` dan `/api/auth/register`; jangan mengandalkan penghitung per proses Vercel.

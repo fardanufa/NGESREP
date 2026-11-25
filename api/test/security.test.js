@@ -7,6 +7,7 @@ import { isNonNegativeInteger } from "../src/validation.js";
 test("HTTP reads, write authorization and input validation", async (t) => {
   const calls = [];
   const authCalls = [];
+  const uploads = [];
   let logoutStatus = 204;
   async function listen(server) {
     server.listen(0, "127.0.0.1");
@@ -17,7 +18,13 @@ test("HTTP reads, write authorization and input validation", async (t) => {
   process.env.SUPABASE_URL = await listen(createServer(async (req, res) => {
     const chunks = [];
     for await (const chunk of req) chunks.push(chunk);
-    const payload = JSON.parse(Buffer.concat(chunks).toString() || "{}");
+    const raw = Buffer.concat(chunks);
+    if (req.url.startsWith("/storage/v1/object/")) {
+      uploads.push([req.method, req.url, req.headers.apikey, req.headers["content-type"], raw]);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      return res.end('{"Key":"resep/katalog/photo.png"}');
+    }
+    const payload = JSON.parse(raw.toString() || "{}");
     if (req.url.startsWith("/auth/v1/")) {
       authCalls.push([req.url, req.headers.apikey]);
       const user = { id: "fixture", email: "tester@example.test" };
@@ -156,6 +163,50 @@ test("HTTP reads, write authorization and input validation", async (t) => {
   const unknown = await request("GET", "tidak-ada");
   assert.equal(unknown.status, 404);
   assert.deepEqual(await unknown.json(), { error: "Endpoint tidak ditemukan" });
+
+  process.env.ADMIN_ORIGIN = "https://ngesrep.example";
+  const admin = (method, path, body, session = "", origin = process.env.ADMIN_ORIGIN, type = "application/json") =>
+    fetch(`${url}/api/admin/${path}`, {
+      method, headers: { Origin: origin, Cookie: session, "Content-Type": type },
+      body: type === "application/json" ? JSON.stringify(body) : body,
+    });
+  assert.equal((await admin("POST", "session", { key }, "", "https://other.example")).status, 403);
+  assert.equal((await admin("POST", "session", { key: "wrong" })).status, 401);
+  assert.equal((await admin("GET", "session", undefined, cookie)).status, 401);
+  const session = await admin("POST", "session", { key });
+  assert.equal(session.status, 204);
+  assert.equal(session.headers.get("cache-control"), "no-store");
+  const adminCookie = session.headers.get("set-cookie");
+  for (const attribute of ["HttpOnly", "Secure", "SameSite=Strict", "Path=/api/admin", "Max-Age=3600"]) {
+    assert.ok(adminCookie.split("; ").includes(attribute));
+  }
+  const adminToken = adminCookie.split(";")[0];
+  assert.equal((await admin("GET", "session", undefined, `${adminToken}x`)).status, 401);
+  for (const resource of ["recipes", "tips", "categories"]) {
+    const payload = resource === "tips" ? { title: "Tips" } : { name: "Nasi" };
+    assert.equal((await admin("GET", resource, undefined, adminToken)).status, 200);
+    assert.equal((await admin("POST", resource, payload, adminToken, "https://other.example")).status, 403);
+    assert.equal((await admin("POST", resource, payload, adminToken)).status, 201);
+    assert.equal((await admin("PUT", `${resource}/${id}`, payload, adminToken)).status, 200);
+    assert.equal((await admin("DELETE", `${resource}/${id}`, undefined, adminToken)).status, 200);
+  }
+  const png = Buffer.from("89504e470d0a1a0a", "hex");
+  assert.equal((await admin("POST", "upload", png, "", undefined, "image/png")).status, 401);
+  assert.equal((await admin("POST", "upload", "<svg/>", adminToken, undefined, "image/svg+xml")).status, 415);
+  assert.equal((await admin("POST", "upload", "not a png", adminToken, undefined, "image/png")).status, 400);
+  assert.equal((await admin("POST", "upload", Buffer.alloc(2 * 1024 * 1024 + 1), adminToken, undefined, "image/png")).status, 413);
+  assert.equal(uploads.length, 0);
+  const uploaded = await admin("POST", "upload", png, adminToken, undefined, "image/png");
+  assert.equal(uploaded.status, 201);
+  const [[method, path, apiKey, type, body]] = uploads;
+  assert.match(path, /^\/storage\/v1\/object\/resep\/katalog\/[\da-f-]+\.png$/);
+  assert.deepEqual([method, apiKey, type, body], ["POST", "service-fixture", "image/png", png]);
+  assert.deepEqual(await uploaded.json(), { image_url: `${process.env.SUPABASE_URL}${path.replace("/object/", "/object/public/")}` });
+  const end = await admin("DELETE", "session", undefined, adminToken);
+  assert.equal(end.status, 204);
+  assert.match(end.headers.get("set-cookie"), /Expires=Thu, 01 Jan 1970/);
+  process.env.ADMIN_API_KEY = "rotated-test-key";
+  assert.equal((await admin("GET", "session", undefined, adminToken)).status, 401);
 });
 
 test("PostgreSQL integer bounds for prices and times", () => {

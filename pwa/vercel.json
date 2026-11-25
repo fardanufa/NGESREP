@@ -1,5 +1,6 @@
 {
   "rewrites": [
-    { "source": "/api/auth/:path*", "destination": "https://ngesrep-7xy6.vercel.app/api/auth/:path*" }
+    { "source": "/api/auth/:path*", "destination": "https://ngesrep-7xy6.vercel.app/api/auth/:path*" },
+    { "source": "/api/admin/:path*", "destination": "https://ngesrep-7xy6.vercel.app/api/admin/:path*" }
   ]
 }

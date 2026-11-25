@@ -64,6 +64,18 @@ export const getRecipe = (id, signal) => request(`/api/recipes/${encodeURICompon
 export const getTips = (signal) => request("/api/tips", undefined, signal);
 export const getTip = (id, signal) => request(`/api/tips/${encodeURIComponent(id.toLowerCase())}`, id, signal);
 
+export function forgetCatalogCache(resource, id) {
+  try {
+    for (const key of Object.keys(localStorage)) {
+      const path = `${CACHE_PREFIX}/api/${resource}`;
+      if (key === path || (id && key === `${path}/${id.toLowerCase()}`) ||
+          (resource === "categories" && (key === `${CACHE_PREFIX}/api/recipes` || key.startsWith(`${CACHE_PREFIX}/api/recipes/`)))) {
+        localStorage.removeItem(key);
+      }
+    }
+  } catch { /* Penyimpanan opsional. */ }
+}
+
 // Dipakai halaman Favorit agar harga dan waktu ikut data terbaru yang sudah tersimpan.
 export function cachedRecipes() {
   try {

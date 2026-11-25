@@ -1,4 +1,4 @@
-const CACHE_VERSION = "ngesrep-v32decfbd0d212b3f";
+const CACHE_VERSION = "ngesrep-v4e71e816a5e39520";
 
 const SHELL = [
   "./",
@@ -19,6 +19,8 @@ const SHELL = [
   "js/pages/favorit.js",
   "js/pages/profil.js",
   "js/pages/login.js",
+  "js/admin.js",
+  "js/pages/kelola.js",
   "icons/icon-192.png",
   "icons/icon-512.png",
   "icons/icon-maskable-512.png",
