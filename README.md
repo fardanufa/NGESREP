@@ -86,8 +86,9 @@ PWA mengaksesnya melalui origin sendiri; sesi memakai cookie `HttpOnly`, bukan t
    dilakukan melalui API server.
 
 **Database lama:** uji `api/sql/upgrade-rls.sql` pada salinan database, lalu jalankan hanya
-skrip tersebut saat upgrade disetujui. Jangan ulangi schema atau seed. Periksa juga bahwa
-tidak ada policy lama yang mengizinkan penulisan langsung oleh `anon` atau `authenticated`.
+skrip tersebut saat upgrade disetujui. Jangan ulangi schema atau seed. Skrip ini menghapus
+policy lama pada tiga tabel katalog sebelum mengaktifkan RLS, karena akses aplikasi memakai
+service role melalui API.
 
 ### 2. API
 

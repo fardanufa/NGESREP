@@ -12,6 +12,7 @@ async function request(path, id, signal) {
   const row = (item) => typeof item?.id === "string" && typeof item[label] === "string";
   const valid = (data) => id === undefined ? Array.isArray(data) && data.every(row) : row(data) && data.id.toLowerCase() === id.toLowerCase();
   let res;
+  let body;
   let timedOut = false;
   const controller = new AbortController();
   const timer = setTimeout(() => {
@@ -24,8 +25,11 @@ async function request(path, id, signal) {
   try {
     signal?.throwIfAborted();
     res = await fetch(`${API_BASE_URL}${path}`, { signal: controller.signal });
+    // Body ikut dibatasi timer supaya koneksi yang putus di tengah tidak menggantung.
+    if (res.ok) body = await res.json();
   } catch (err) {
     if (signal?.aborted) throw err;
+    if (err instanceof SyntaxError) throw err; // Body rusak, bukan masalah koneksi.
     try {
       const cached = JSON.parse(localStorage.getItem(key));
       if (valid(cached)) {
@@ -48,7 +52,6 @@ async function request(path, id, signal) {
     }
     throw Object.assign(new Error("Gagal memuat data"), { status: res.status });
   }
-  const body = await res.json();
   if (!valid(body)) throw new Error("Format data API tidak valid");
   signal?.throwIfAborted();
   try { localStorage.setItem(key, JSON.stringify(body)); } catch { /* Data tetap tersedia online. */ }
@@ -60,3 +63,13 @@ export const getRecipes = (signal) => request("/api/recipes", undefined, signal)
 export const getRecipe = (id, signal) => request(`/api/recipes/${encodeURIComponent(id.toLowerCase())}`, id, signal);
 export const getTips = (signal) => request("/api/tips", undefined, signal);
 export const getTip = (id, signal) => request(`/api/tips/${encodeURIComponent(id.toLowerCase())}`, id, signal);
+
+// Dipakai halaman Favorit agar harga dan waktu ikut data terbaru yang sudah tersimpan.
+export function cachedRecipes() {
+  try {
+    const data = JSON.parse(localStorage.getItem(`${CACHE_PREFIX}/api/recipes`));
+    return Array.isArray(data) ? data.filter((recipe) => typeof recipe?.id === "string") : [];
+  } catch {
+    return [];
+  }
+}

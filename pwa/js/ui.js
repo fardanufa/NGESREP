@@ -8,6 +8,11 @@ export const esc = (value = "") =>
 
 export const rupiah = (value) => `Rp ${new Intl.NumberFormat("id-ID").format(Number(value) || 0)}`;
 
+export function backLink(href, label) {
+  return `<a href="${esc(href)}" class="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-primary text-on-primary font-label-lg shadow-sm hover:opacity-90 active:scale-95 transition-all">
+  <span aria-hidden="true" class="material-symbols-outlined text-[20px]">arrow_back</span>${esc(label)}</a>`;
+}
+
 export function imgSrc(path) {
   return path ? String(path).replace(/^\.?\//, "") : "images/placeholder.svg";
 }

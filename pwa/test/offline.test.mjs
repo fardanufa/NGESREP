@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import vm from "node:vm";
-import { readFile } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
 import { getRecipe, getRecipes } from "../js/api.js";
 import { getFavorites, saveFavorite, removeFavorite } from "../js/favorites.js";
 import { detailTips } from "../js/pages/detailTips.js";
@@ -138,6 +138,17 @@ test("a late response from an earlier visit cannot replace the same tip", async 
   assert.doesNotMatch(main.innerHTML, />Old</);
 });
 
+test("favorites pick up the latest price from the cached recipe list", () => {
+  const store = new Map([
+    ["ngesrep_favorites", JSON.stringify([{ id: "r", name: "Nasi", cost_estimate: 1000 }])],
+    ["ngesrep_cache/api/recipes", JSON.stringify([{ id: "r", name: "Nasi", cost_estimate: 2000, cook_time: 10 }])],
+  ]);
+  Object.defineProperty(globalThis, "localStorage", { configurable: true, value: {
+    getItem: key => store.get(key) ?? null, setItem: (key, value) => store.set(key, value),
+  } });
+  assert.equal(getFavorites()[0].cost_estimate, 2000);
+});
+
 test("favorites still save when Web Locks is unavailable", async () => {
   let saved = null;
   Object.defineProperty(globalThis, "localStorage", { configurable: true, value: {
@@ -149,6 +160,34 @@ test("favorites still save when Web Locks is unavailable", async () => {
   assert.deepEqual(getFavorites(), [recipe]);
   await removeFavorite("r");
   assert.deepEqual(getFavorites(), []);
+});
+
+test("the offline shell lists only files that exist", async () => {
+  const source = await readFile(new URL("../sw.js", import.meta.url), "utf8");
+  const shell = vm.runInNewContext(source.match(/const SHELL = (\[[\s\S]*?\]);/)[1]);
+  for (const entry of shell) await access(new URL(`../${entry}`, import.meta.url));
+});
+
+test("a stalled response body still falls back to the cached copy", async (t) => {
+  const data = new Map([["ngesrep_cache/api/recipes", JSON.stringify([{ id: "r", name: "Nasi" }])]]);
+  Object.defineProperty(globalThis, "localStorage", { configurable: true, value: {
+    getItem: key => data.get(key) ?? null, setItem: (key, value) => data.set(key, value),
+  } });
+  const status = { replaceChildren(el) { this.message = el.textContent; } };
+  globalThis.document = { createElement: () => ({}), getElementById: id => id === "app-status" && status };
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  t.mock.method(globalThis, "fetch", (_url, options) => Promise.resolve({
+    ok: true, status: 200,
+    json: () => new Promise((_, reject) => {
+      const fail = () => reject(new DOMException("Aborted", "AbortError"));
+      if (options.signal.aborted) fail();
+      else options.signal.addEventListener("abort", fail);
+    }),
+  }));
+  const pending = getRecipes();
+  t.mock.timers.tick(12000);
+  assert.deepEqual(await pending, [{ id: "r", name: "Nasi" }]);
+  assert.match(status.message, /lambat/);
 });
 
 test("a slow API falls back to the cached copy after the timeout", async (t) => {

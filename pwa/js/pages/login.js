@@ -1,7 +1,4 @@
-import { esc, loadingBox, toast } from "../ui.js";
-
-const backLink = `<a href="#/beranda" class="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-primary text-on-primary font-label-lg shadow-sm hover:opacity-90 active:scale-95 transition-all">
-  <span aria-hidden="true" class="material-symbols-outlined text-[20px]">arrow_back</span>Kembali ke Beranda</a>`;
+import { backLink, esc, loadingBox, toast } from "../ui.js";
 
 function formHTML(mode) {
   const isLogin = mode === "login";
@@ -53,7 +50,7 @@ function formHTML(mode) {
     </p>
 
     <div class="mt-6 pt-4 border-t border-outline">
-      ${backLink}
+      ${backLink("#/beranda", "Kembali ke Beranda")}
     </div>
   </div>`;
 }
@@ -69,6 +66,7 @@ async function account(action, signal, body) {
 }
 
 function showForm(main, mode, signal) {
+  document.title = "Masuk / Daftar · NGESREP";
   main.innerHTML = formHTML(mode);
   const form = main.querySelector("#auth-form");
   const toggle = main.querySelector("#toggle-mode");

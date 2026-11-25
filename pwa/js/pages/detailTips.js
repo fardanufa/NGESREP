@@ -1,8 +1,5 @@
 import { getTip, getTips } from "../api.js";
-import { esc, imgTag, loadingBox, stateBox, retryButton } from "../ui.js";
-
-const backLink = `<a href="#/tips" class="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-primary text-on-primary font-label-lg shadow-sm hover:opacity-90 active:scale-95 transition-all">
-  <span aria-hidden="true" class="material-symbols-outlined text-[20px]">arrow_back</span>Kembali ke Tips</a>`;
+import { backLink, esc, imgTag, loadingBox, stateBox, retryButton } from "../ui.js";
 
 function otherCard(tip) {
   return `
@@ -80,7 +77,7 @@ export async function detailTips(main, id, signal) {
         "search_off",
         "Tips tidak ditemukan",
         "Tips ini mungkin sudah dihapus atau alamatnya salah.",
-        backLink
+        backLink("#/tips", "Kembali ke Tips")
       )}</div>`;
       return;
     }

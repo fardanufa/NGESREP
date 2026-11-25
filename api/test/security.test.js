@@ -7,6 +7,7 @@ import { isNonNegativeInteger } from "../src/validation.js";
 test("HTTP reads, write authorization and input validation", async (t) => {
   const calls = [];
   const authCalls = [];
+  let logoutStatus = 204;
   async function listen(server) {
     server.listen(0, "127.0.0.1");
     await once(server, "listening");
@@ -31,7 +32,7 @@ test("HTTP reads, write authorization and input validation", async (t) => {
       if (req.url.startsWith("/auth/v1/logout")) {
         assert.equal(req.headers.authorization, "Bearer reader-token");
         assert.match(req.url, /scope=local/);
-        res.writeHead(204);
+        res.writeHead(logoutStatus);
         return res.end();
       }
       res.writeHead(status, { "Content-Type": "application/json" });
@@ -138,6 +139,10 @@ test("HTTP reads, write authorization and input validation", async (t) => {
   const logout = await fetch(`${url}/api/auth/logout`, { method: "POST", headers: { cookie, "Content-Type": "application/json" }, body: "{}" });
   assert.equal(logout.status, 204);
   assert.equal(logout.headers.getSetCookie().length, 2);
+  logoutStatus = 500;
+  const forced = await fetch(`${url}/api/auth/logout`, { method: "POST", headers: { cookie, "Content-Type": "application/json" }, body: "{}" });
+  assert.equal(forced.status, 204);
+  assert.equal(forced.headers.getSetCookie().length, 2);
   assert.ok(authCalls.every(([, apiKey]) => apiKey === "public-fixture"));
 
   const failed = await request("GET", "recipes?search=boom");
@@ -145,6 +150,9 @@ test("HTTP reads, write authorization and input validation", async (t) => {
   assert.deepEqual(await failed.json(), { error: "Terjadi kesalahan server" });
   assert.equal((await request("GET", `recipes?search=${"a".repeat(101)}`)).status, 400);
   assert.equal((await request("GET", `tips?search=${"a".repeat(101)}`)).status, 400);
+  assert.equal((await request("GET", "recipes?search=a&search=b")).status, 400);
+  assert.equal((await request("GET", "tips?search=a&search=b")).status, 400);
+  assert.equal((await request("POST", "tips", { title: "Tips", content: {} }, key)).status, 400);
   const unknown = await request("GET", "tidak-ada");
   assert.equal(unknown.status, 404);
   assert.deepEqual(await unknown.json(), { error: "Endpoint tidak ditemukan" });

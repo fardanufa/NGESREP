@@ -1,9 +1,6 @@
 import { getRecipe } from "../api.js";
-import { esc, imgTag, loadingBox, rupiah, stateBox, retryButton, toast } from "../ui.js";
+import { backLink, esc, imgTag, loadingBox, rupiah, stateBox, retryButton, toast } from "../ui.js";
 import { isFavorite, removeFavorite, saveFavorite } from "../favorites.js";
-
-const backLink = `<a href="#/beranda" class="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-primary text-on-primary font-label-lg shadow-sm hover:opacity-90 active:scale-95 transition-all">
-  <span aria-hidden="true" class="material-symbols-outlined text-[20px]">arrow_back</span>Kembali ke Beranda</a>`;
 
 function ingredientItem(text) {
   return `
@@ -170,7 +167,7 @@ export async function detailResep(main, id, signal) {
         "ramen_dining",
         "Resep tidak ditemukan",
         "Resep ini mungkin sudah dihapus atau alamatnya salah.",
-        backLink
+        backLink("#/beranda", "Kembali ke Beranda")
       )}</div>`;
       return;
     }

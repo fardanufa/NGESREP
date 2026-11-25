@@ -1,5 +1,7 @@
 // Favorit disimpan di localStorage supaya halaman Favorit tetap tampil saat offline.
 
+import { cachedRecipes } from "./api.js";
+
 const KEY = "ngesrep_favorites";
 
 function readList() {
@@ -14,7 +16,16 @@ function readList() {
 
 export function getFavorites() {
   try {
-    return readList();
+    const list = readList();
+    const latest = new Map(cachedRecipes().map((recipe) => [recipe.id, recipe]));
+    for (const item of list) {
+      const fresh = latest.get(item.id);
+      if (!fresh) continue;
+      for (const field of ["name", "image_url", "cook_time", "cost_estimate"]) {
+        if (fresh[field] !== undefined) item[field] = fresh[field];
+      }
+    }
+    return list;
   } catch {
     return [];
   }

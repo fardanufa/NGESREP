@@ -15,6 +15,7 @@ const cookie = (req, name) => (req.get("cookie") || "").split(";")
 function fail(res, error, message, status = 401) {
   if (error?.status === 429) return res.status(429).json({ error: "Terlalu banyak percobaan. Coba lagi nanti." });
   if (error && (!error.status || error.status >= 500)) {
+    console.error(error);
     return res.status(503).json({ error: "Layanan akun belum tersedia. Coba lagi nanti." });
   }
   return res.status(status).json({ error: message });
@@ -82,13 +83,14 @@ router.post("/logout", async (req, res) => {
   let jwt = cookie(req, access);
   if (!jwt && token) {
     const { data, error } = await auth.refreshSession({ refresh_token: token });
-    if (error && ![400, 401, 403].includes(error.status)) return fail(res, error, "Gagal keluar.");
+    if (error && ![400, 401, 403].includes(error.status)) console.error(error);
     jwt = data.session?.access_token;
   }
   if (jwt) {
     const { error } = await auth.admin.signOut(jwt, "local");
-    if (error && ![401, 403, 404].includes(error.status)) return fail(res, error, "Gagal keluar.");
+    if (error && ![401, 403, 404].includes(error.status)) console.error(error);
   }
+  // Cookie tetap dibersihkan walau layanan akun gagal, supaya sesi lokal bisa diakhiri.
   res.clearCookie(access, cookieOptions(req));
   res.clearCookie(refresh, cookieOptions(req));
   res.sendStatus(204);
