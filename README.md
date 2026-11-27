@@ -73,11 +73,23 @@ mengembalikan `503`.
 
 ### Kelola Katalog
 
-Buka **Profil → Kelola Katalog**, masukkan kunci admin, lalu pilih Resep, Tips, atau Kategori
-untuk menambah, mengubah, dan menghapus data. Aplikasi mengirim kunci sekali saat masuk
-dan tidak menyimpannya di penyimpanan browser. Server memberi cookie `HttpOnly` yang berlaku
-satu jam. Akun pembaca tidak mendapat sesi ini. Gunakan **Keluar admin** setelah selesai.
+Buka **Profil → Masuk admin** (`#/kelola`) dan masuk dengan email serta kata sandi akun
+admin. Setelah kembali ke Beranda, gunakan **Tambah Resep** atau tombol **Ubah** dan
+**Hapus** pada kartu resep. API memberi cookie admin `HttpOnly` terpisah yang berlaku satu
+jam; kontrol ini tidak tampil untuk pembaca. Gunakan **Keluar admin** di Beranda setelah selesai.
+Tips dan kategori tidak punya UI admin di PWA; keduanya tetap bisa dikelola lewat API tulis langsung.
 Penghapusan kategori tidak menghapus resep; resep terkait menjadi tanpa kategori.
+
+**Siapkan akun admin:** di Supabase Authentication, buat atau pilih akun dengan email
+terkonfirmasi. Dari lingkungan server tepercaya, gunakan Supabase Auth Admin API
+(`supabase.auth.admin.updateUserById(userId, { app_metadata: { role: "admin" } })` dengan
+client service role). Penanda harus di `app_metadata`, bukan `user_metadata`. Uji di proyek
+pengujian sebelum menyiapkan akun produksi. Tidak perlu tabel atau migrasi admin.
+
+`ADMIN_API_KEY` tetap hanya di server: untuk menandatangani sesi admin dan menerima
+request tulis langsung via Bearer. Rotasi kunci sebelum rilis jika sebelumnya dibagikan
+untuk login; rotasi membatalkan semua sesi admin. Pencabutan role berlaku untuk login baru;
+sesi yang sudah terbit kedaluwarsa dalam satu jam.
 
 Foto resep dan tips diunggah lewat API ke Supabase Storage. Siapkan bucket publik bernama
 `resep` pada **proyek pengujian** terlebih dahulu; izinkan JPEG, PNG, dan WebP hingga 2 MB.
@@ -146,8 +158,8 @@ npm install
 npm run build:css          # menghasilkan css/style.css
 ```
 
-Buka `http://localhost:3000/index.html` saat API lokal berjalan agar halaman akun dan
-Kelola Katalog berada pada origin yang sama. Server statis terpisah tidak menangani login.
+Buka `http://localhost:3000/index.html` untuk PWA dan `http://localhost:3000/index.html#/kelola`
+untuk admin. Server statis terpisah tidak menangani login.
 
 `API_BASE_URL` di `pwa/js/config.js` menunjuk ke API produksi. Untuk pengembangan lokal,
 ubah ke `http://localhost:3000`. Gunakan HTTPS atau localhost agar penyimpanan favorit lintas tab tersedia.
@@ -178,8 +190,8 @@ Cara deploy ulang dari nol:
 aktifkan provider Email di Supabase, dan atur Site URL ke URL PWA. Dengan konfirmasi email
 aktif, pembaca membuka tautan konfirmasi lalu kembali ke Profil → Akun untuk masuk.
 Jika alamat API berubah, sesuaikan juga tujuan rewrite di `pwa/vercel.json`.
-Kelola Katalog menerima request tulis hanya dari `https://ngesrep.vercel.app` di Vercel
-secara bawaan. Untuk domain lain, set `ADMIN_ORIGIN` pada proyek API ke origin PWA
+API admin menerima request tulis dari `https://ngesrep.vercel.app` dan
+`https://ngesrep-pwa.vercel.app` di Vercel secara bawaan. Untuk domain lain, set `ADMIN_ORIGIN` pada proyek API ke origin PWA
 yang tepat (tanpa garis miring penutup). Sebelum mengaktifkan fitur di produksi,
 siapkan bucket `resep` dengan pengaturan di atas dan terapkan rate limit platform
 pada `POST /api/admin/session`. Jangan arahkan pengujian CRUD ke database produksi.

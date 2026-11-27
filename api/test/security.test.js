@@ -28,7 +28,12 @@ test("HTTP reads, write authorization and input validation", async (t) => {
     const payload = JSON.parse(raw.toString() || "{}");
     if (req.url.startsWith("/auth/v1/")) {
       authCalls.push([req.url, req.headers.apikey]);
-      const user = { id: "fixture", email: "tester@example.test" };
+      const user = { id: "fixture", email: "tester@example.test", user_metadata: { role: "admin" } };
+      if (["admin@example.test", "unconfirmed@example.test"].includes(payload.email)) {
+        user.email = payload.email;
+        user.app_metadata = { role: "admin" };
+        if (payload.email === "admin@example.test") user.email_confirmed_at = "2026-01-01T00:00:00Z";
+      }
       let data = { access_token: "reader-token", refresh_token: "refresh-token", expires_in: 3600, user };
       let status = 200;
       if (req.url.startsWith("/auth/v1/signup")) data = user;
@@ -210,10 +215,23 @@ test("HTTP reads, write authorization and input validation", async (t) => {
       method, headers: { Origin: origin, Cookie: session, "Content-Type": type },
       body: type === "application/json" ? JSON.stringify(body) : body,
     });
-  assert.equal((await admin("POST", "session", { key }, "", "https://other.example")).status, 403);
-  assert.equal((await admin("POST", "session", { key: "wrong" })).status, 401);
+  const adminCredentials = { ...credentials, email: "admin@example.test" };
+  const beforeAdminLogin = authCalls.length;
+  assert.equal((await admin("POST", "session", adminCredentials, "", "https://other.example")).status, 403);
+  assert.equal((await admin("POST", "session", { key })).status, 400);
+  assert.equal(authCalls.length, beforeAdminLogin);
+  for (const rejected of [
+    { ...credentials, role: "admin" },
+    { ...adminCredentials, email: "unconfirmed@example.test" },
+    { ...adminCredentials, password: "wrong" },
+  ]) {
+    const denied = await admin("POST", "session", rejected);
+    assert.equal(denied.status, 401);
+    assert.equal(denied.headers.get("set-cookie"), null);
+  }
+  assert.equal((await admin("POST", "session", { ...adminCredentials, password: "limited" })).status, 429);
   assert.equal((await admin("GET", "session", undefined, cookie)).status, 401);
-  const session = await admin("POST", "session", { key });
+  const session = await admin("POST", "session", adminCredentials);
   assert.equal(session.status, 204);
   assert.equal(session.headers.get("cache-control"), "no-store");
   const adminCookie = session.headers.get("set-cookie");
@@ -221,6 +239,12 @@ test("HTTP reads, write authorization and input validation", async (t) => {
     assert.ok(adminCookie.split("; ").includes(attribute));
   }
   const adminToken = adminCookie.split(";")[0];
+  assert.ok(authCalls.slice(beforeAdminLogin).every(([, apiKey]) => apiKey === "public-fixture"));
+  assert.ok(!adminToken.includes("reader-token") && !adminToken.includes("refresh-token"));
+  const who = await admin("GET", "session", undefined, adminToken);
+  assert.equal(who.status, 200);
+  assert.equal(who.headers.get("cache-control"), "no-store");
+  assert.deepEqual(await who.json(), { email: adminCredentials.email });
   assert.equal((await admin("GET", "session", undefined, `${adminToken}x`)).status, 401);
   for (const resource of ["recipes", "tips", "categories"]) {
     const payload = resource === "tips" ? { title: "Tips" } : { name: "Nasi" };

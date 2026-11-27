@@ -19,7 +19,7 @@ const ROUTES = [
   { re: /^\/tips\/([^/]+)$/, page: detailTips, title: "Detail Tips", back: "#/tips" },
   { re: /^\/favorit\/?$/, page: favorit, tab: "favorit", title: "Favorit" },
   { re: /^\/profil\/?$/, page: profil, tab: "profil", title: "Profil" },
-  { re: /^\/kelola\/?$/, page: kelola, title: "Kelola Katalog", back: "#/profil" },
+  { re: /^\/kelola\/?$/, page: kelola, title: "Masuk admin", back: "#/profil" },
   { re: /^\/login\/?$/, page: login, title: "Masuk / Daftar", back: "#/beranda" },
 ];
 

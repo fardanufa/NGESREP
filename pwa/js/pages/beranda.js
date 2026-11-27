@@ -1,9 +1,14 @@
-import { getCategories, getRecipes } from "../api.js";
-import { esc, imgTag, rupiah, skeletonList, stateBox, retryButton } from "../ui.js";
+import { adminRequest } from "../admin.js";
+import { forgetCatalogCache, getCategories, getRecipes } from "../api.js";
+import { catalogPayload, recipeForm, saveRecipe } from "../recipeEditor.js";
+import { esc, imgTag, rupiah, skeletonList, stateBox, retryButton, toast } from "../ui.js";
 
-function card(recipe, priority = false) {
+const adminButton = "min-h-11 rounded-full px-4 py-2 text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-50";
+
+function card(recipe, priority, isAdmin, locked) {
   return `
-  <a href="#/resep/${esc(recipe.id)}" class="block bg-surface-container-lowest rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-200">
+  <article class="overflow-hidden rounded-2xl bg-surface-container-lowest shadow-sm transition-shadow hover:shadow-md">
+  <a href="#/resep/${esc(recipe.id)}" class="block focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary">
     <div class="relative w-full aspect-[16/10] overflow-hidden bg-surface-container">
       ${imgTag(recipe.image_url, recipe.name, "w-full h-full object-cover", priority ? "eager" : "lazy")}
       <div class="absolute top-3 left-3">
@@ -20,7 +25,12 @@ function card(recipe, priority = false) {
         <span class="inline-flex items-center bg-primary text-on-primary px-4 py-1.5 rounded-full font-label-md text-label-md font-semibold shadow-sm">Lihat Resep</span>
       </div>
     </div>
-  </a>`;
+  </a>
+  ${isAdmin ? `<div class="flex justify-end gap-2 border-t border-outline-variant px-space-md py-2">
+    <button type="button" data-edit="${esc(recipe.id)}" aria-label="Ubah ${esc(recipe.name)}" ${locked ? "disabled" : ""} class="${adminButton} bg-surface-container-low hover:bg-surface-container-high">Ubah</button>
+    <button type="button" data-remove="${esc(recipe.id)}" aria-label="Hapus ${esc(recipe.name)}" ${locked ? "disabled" : ""} class="${adminButton} text-error hover:bg-error-container">Hapus</button>
+  </div>` : ""}
+  </article>`;
 }
 
 function chipLabel(id, label, active) {
@@ -52,20 +62,34 @@ export async function beranda(main, _id, signal) {
   </section>
 
   <section class="px-gutter flex flex-col gap-space-md pb-space-lg">
-    <div>
-      <h1 class="font-headline-lg text-headline-lg text-on-surface font-bold">Resep Anak Kos</h1>
-      <p data-count aria-live="polite" class="font-body-sm text-body-sm text-on-surface-variant">Memuat resep…</p>
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <h1 tabindex="-1" class="font-headline-lg text-headline-lg text-on-surface font-bold">Resep Anak Kos</h1>
+        <p data-count aria-live="polite" class="font-body-sm text-body-sm text-on-surface-variant">Memuat resep…</p>
+      </div>
+      <div data-admin-controls class="flex flex-wrap gap-2"></div>
     </div>
+    <div data-editor hidden></div>
     <div id="recipe-list" class="flex flex-col gap-space-md md:grid md:grid-cols-2 xl:grid-cols-3">${skeletonList(3)}</div>
   </section>`;
 
   const list = main.querySelector("#recipe-list");
   const chips = main.querySelector("#category-chips");
   const input = main.querySelector("#recipe-search");
+  const toolbar = main.querySelector("[data-admin-controls]");
+  const editor = main.querySelector("[data-editor]");
+  const heading = main.querySelector("h1");
+  const request = (path, options) => adminRequest(path, {
+    ...options, signal: AbortSignal.any([signal, AbortSignal.timeout(20000)]),
+  });
 
   let recipes;
+  let categories = [];
   let category = "all";
   let query = "";
+  let isAdmin = false;
+  let busy = false;
+  const locked = () => busy || !editor.hidden;
 
   function filtered() {
     const keyword = query.toLowerCase();
@@ -89,9 +113,131 @@ export async function beranda(main, _id, signal) {
         : "Tidak ada resep yang cocok";
     }
     list.innerHTML = items.length
-      ? items.map((recipe, index) => card(recipe, index === 0)).join("")
+      ? items.map((recipe, index) => card(recipe, index === 0, isAdmin, locked())).join("")
       : stateBox("search_off", "Resep tidak ditemukan", "Coba kata kunci lain atau pilih kategori Semua.");
   }
+
+  function lockControls() {
+    for (const button of main.querySelectorAll("[data-add], [data-edit], [data-remove], [data-logout]")) {
+      button.disabled = locked();
+    }
+  }
+
+  function closeEditor() {
+    editor.hidden = true;
+    editor.replaceChildren();
+    lockControls();
+  }
+
+  function clearAdmin() {
+    isAdmin = false;
+    toolbar.replaceChildren();
+    closeEditor();
+    draw();
+    heading.focus();
+  }
+
+  async function runAdmin(run, showError = toast) {
+    busy = true;
+    lockControls();
+    try {
+      await run();
+    } catch (error) {
+      if (signal.aborted) return;
+      if (error.status === 401) {
+        clearAdmin();
+        toast("Sesi admin berakhir. Masuk lagi lewat Profil.");
+      } else {
+        showError(error instanceof TypeError || error.name === "TimeoutError"
+          ? "Tidak dapat menghubungi layanan admin. Periksa koneksi lalu coba lagi." : error.message);
+      }
+    } finally {
+      busy = false;
+      if (!signal.aborted) lockControls();
+    }
+  }
+
+  async function afterWrite(id, message) {
+    forgetCatalogCache("recipes", id);
+    if (signal.aborted) return;
+    closeEditor();
+    toast(message);
+    await load();
+    if (!signal.aborted) heading.focus();
+  }
+
+  function openEditor(row, trigger) {
+    editor.innerHTML = recipeForm(row, categories);
+    editor.hidden = false;
+    lockControls();
+    const form = editor.querySelector("form");
+    const fields = form.querySelector("fieldset");
+    const notice = form.querySelector("[role=alert]");
+    const submit = form.querySelector("[type=submit]");
+    const name = form.elements.namedItem("name");
+    const showError = (message = "") => {
+      notice.textContent = message;
+      notice.classList.toggle("hidden", !message);
+    };
+    name.focus();
+    form.querySelector("[data-cancel]").onclick = () => {
+      closeEditor();
+      if (trigger.isConnected) trigger.focus();
+      else heading.focus();
+    };
+    let uploadedFile;
+    let uploadedPhoto;
+    form.onsubmit = async (event) => {
+      event.preventDefault();
+      if (busy) return;
+      const data = catalogPayload(new FormData(form));
+      const file = form.querySelector("[type=file]").files[0];
+      showError();
+      fields.disabled = true;
+      submit.textContent = "Menyimpan…";
+      await runAdmin(async () => {
+        const saved = await saveRecipe(request, row, data, file, async (body) => {
+          if (body !== uploadedFile) {
+            uploadedPhoto = await request("upload", { method: "POST", body });
+            uploadedFile = body;
+          }
+          return uploadedPhoto;
+        });
+        await afterWrite(row.id || saved.id, row.id ? "Resep diperbarui." : "Resep ditambahkan.");
+      }, showError);
+      fields.disabled = false;
+      submit.textContent = "Simpan";
+      if (!signal.aborted && editor.contains(form)) submit.focus();
+    };
+  }
+
+  toolbar.addEventListener("click", (event) => {
+    if (!isAdmin || locked()) return;
+    const add = event.target.closest("[data-add]");
+    if (add) return openEditor({}, add);
+    if (event.target.closest("[data-logout]")) {
+      void runAdmin(async () => {
+        await request("session", { method: "DELETE" });
+        if (signal.aborted) return;
+        clearAdmin();
+        toast("Anda sudah keluar dari sesi admin.");
+      });
+    }
+  });
+
+  list.addEventListener("click", (event) => {
+    if (!isAdmin || locked()) return;
+    const button = event.target.closest("[data-edit], [data-remove]");
+    if (!button) return;
+    const row = recipes?.find(({ id }) => id === (button.dataset.edit ?? button.dataset.remove));
+    if (!row) return;
+    if (button.dataset.edit) return openEditor(row, button);
+    if (!confirm(`Hapus resep “${row.name}”?`)) return;
+    void runAdmin(async () => {
+      await request(`recipes/${encodeURIComponent(row.id)}`, { method: "DELETE" });
+      await afterWrite(row.id, "Resep dihapus.");
+    });
+  });
 
   function paintChips() {
     chips.querySelectorAll("[data-category]").forEach((button) => {
@@ -122,6 +268,7 @@ export async function beranda(main, _id, signal) {
   });
 
   async function load() {
+    recipes = undefined;
     list.innerHTML = skeletonList(3);
     try {
       recipes = await getRecipes(signal);
@@ -139,9 +286,19 @@ export async function beranda(main, _id, signal) {
     }
   }
 
-  await Promise.all([load(), getCategories(signal).then((categories) => {
+  const categoryLoad = getCategories(signal).then((rows) => {
     if (signal.aborted) return;
+    categories = rows;
     chips.innerHTML = chipLabel("all", "Semua", true) +
       categories.map((item) => chipLabel(item.id, item.name, false)).join("");
-  }).catch(() => { /* Filter kategori tidak wajib. */ })]);
+  }).catch(() => { /* Filter kategori tidak wajib. */ });
+  const adminLoad = request("session").then(async () => {
+    await categoryLoad;
+    if (signal.aborted) return;
+    isAdmin = true;
+    toolbar.innerHTML = `<button type="button" data-add class="${adminButton} bg-primary text-on-primary hover:opacity-90">Tambah Resep</button>
+      <button type="button" data-logout class="${adminButton} bg-surface-container-low hover:bg-surface-container-high">Keluar admin</button>`;
+    draw();
+  }).catch(() => { /* Beranda tetap publik dan dapat dipakai luring. */ });
+  await Promise.all([load(), categoryLoad, adminLoad]);
 }

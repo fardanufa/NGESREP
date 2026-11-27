@@ -54,12 +54,23 @@ test("worker activation preserves unrelated caches and leaves API data to the pa
   const events = {}, removed = [];
   const current = source.match(/const CACHE_VERSION = "([^"]+)"/)[1];
   vm.runInNewContext(source, { URL, self: { addEventListener: (k, fn) => events[k] = fn, clients: { claim() {} } },
-    caches: { keys: async () => ["another-app", current, "ngesrep-v7"], delete: async key => removed.push(key) } });
+    fetch: async () => { throw new TypeError("offline"); },
+    caches: {
+      keys: async () => ["another-app", current, "ngesrep-v7"],
+      delete: async key => removed.push(key),
+      match: async (page, options) => { assert.equal(options.cacheName, current); return page; },
+    } });
   let activation;
   events.activate({ waitUntil: p => { activation = p; } });
   await activation;
   assert.deepEqual(removed, ["ngesrep-v7"]);
   events.fetch({ request: new Request("https://example.invalid/api/recipes") });
+  let response;
+  events.fetch({
+    request: { method: "GET", mode: "navigate", url: "https://example.invalid/" },
+    respondWith: (promise) => { response = promise; },
+  });
+  assert.equal(await response, "index.html");
 });
 
 test("favorites recover from malformed entries and report a failed save", async () => {
@@ -99,7 +110,10 @@ test("typing before tips load does not replace the retry button", async (t) => {
 test("detail Back uses app history only when the previous entry is an app route", async () => {
   let back;
   const header = { querySelector: () => ({ addEventListener: (_type, fn) => { back = fn; } }) };
-  const main = { querySelector: () => ({}) };
+  const form = { elements: { namedItem: () => ({}) }, querySelector: () => ({}) };
+  const panel = { querySelector: () => form };
+  const main = { focus() {}, querySelector: (selector) =>
+    selector === "[data-panel]" ? panel : { classList: { toggle() {} } } };
   const nav = { classList: { toggle() {} }, querySelectorAll: () => [] };
   globalThis.document = { getElementById: id => ({ "app-header": header, app: main, "bottom-nav": nav })[id] };
   globalThis.location = { origin: "https://example.test", pathname: "/", hash: "#/resep/r" };
@@ -118,6 +132,16 @@ test("detail Back uses app history only when the previous entry is an app route"
       assert.equal(location.hash, url === "https://example.test/#/favorit" ? "#/resep/r" : "#/beranda");
     }
     assert.equal(historyCalls, 1);
+    location.hash = "#/kelola";
+    window.navigation = undefined;
+    globalThis.fetch = async (url) => {
+      assert.equal(url, "/api/admin/session");
+      return Response.json({ error: "Silakan masuk." }, { status: 401 });
+    };
+    await renderRoute();
+    assert.match(panel.innerHTML, /Masuk sebagai admin/);
+    back();
+    assert.equal(location.hash, "#/profil");
   } finally {
     globalThis.fetch = fetchBefore;
   }
