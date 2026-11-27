@@ -1,4 +1,4 @@
-import { getFavorites, removeFavorite } from "../favorites.js";
+import { FAVORITE_ACCOUNT_KEY, getFavorites, refreshFavorites, removeFavorite } from "../favorites.js";
 import { esc, imgTag, rupiah, stateBox, toast } from "../ui.js";
 
 const emptyState = stateBox(
@@ -28,13 +28,13 @@ function card(item, priority = false) {
       </div>
     </a>
     <button type="button" data-remove="${esc(item.id)}" aria-label="Hapus dari favorit"
-      class="w-11 h-11 rounded-full flex items-center justify-center text-primary hover:bg-surface-container-high transition-colors shrink-0">
+      class="w-11 h-11 rounded-full flex items-center justify-center text-primary hover:bg-surface-container-high transition-colors shrink-0 disabled:opacity-50">
       <span aria-hidden="true" class="material-symbols-outlined text-[24px]" style="font-variation-settings: 'FILL' 1;">favorite</span>
     </button>
   </div>`;
 }
 
-export async function favorit(main) {
+export async function favorit(main, _id, signal) {
   main.innerHTML = `
   <div class="px-gutter pt-space-md flex flex-col gap-space-md pb-space-lg">
     <section class="flex items-center justify-between">
@@ -52,6 +52,7 @@ export async function favorit(main) {
 
   const container = main.querySelector("#favorites-list");
   const status = main.querySelector("#favorites-status");
+  let syncing = true;
 
   function draw() {
     const favorites = getFavorites();
@@ -64,22 +65,38 @@ export async function favorit(main) {
     container.innerHTML = favorites.map((item, index) => card(item, index === 0)).join("");
 
     container.querySelectorAll("[data-remove]").forEach((button) => {
+      button.disabled = syncing;
       button.addEventListener("click", async () => {
         const id = button.dataset.remove;
         const name = favorites.find((item) => item.id === id)?.name || "Resep";
         const index = [...container.querySelectorAll("[data-remove]")].indexOf(button);
+        button.disabled = true;
         try {
           await removeFavorite(id);
+          if (signal.aborted) return;
           draw();
           status.textContent = `${name} dihapus dari favorit.`;
           const buttons = container.querySelectorAll("[data-remove]");
           (buttons[Math.min(index, buttons.length - 1)] || container.querySelector("a"))?.focus();
-        } catch {
-          toast("Favorit tidak terhapus. Penyimpanan browser penuh atau diblokir.");
+        } catch (error) {
+          if (signal.aborted) return;
+          toast(error.status ? error.message : "Favorit tidak terhapus. Periksa koneksi atau penyimpanan browser.");
+          button.disabled = false;
         }
       });
     });
   }
 
   draw();
+  window.addEventListener("storage", (event) => {
+    if (event.key === FAVORITE_ACCOUNT_KEY || event.key === null) draw();
+  }, { signal });
+  try {
+    await refreshFavorites(signal);
+  } catch (error) {
+    if (!signal.aborted && error.status) toast("Favorit belum tersinkron. Buka ulang halaman ini untuk mencoba lagi.");
+  } finally {
+    syncing = false;
+    if (!signal.aborted) draw();
+  }
 }

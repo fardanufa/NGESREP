@@ -1,4 +1,4 @@
-const CACHE_VERSION = "ngesrep-v4e71e816a5e39520";
+const CACHE_VERSION = "ngesrep-v12067966c241fa61";
 
 const SHELL = [
   "./",
@@ -8,6 +8,7 @@ const SHELL = [
   "manifest.json",
   "js/app.js",
   "js/api.js",
+  "js/account.js",
   "js/config.js",
   "js/favorites.js",
   "js/router.js",

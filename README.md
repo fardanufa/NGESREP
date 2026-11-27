@@ -89,7 +89,20 @@ setelah memastikan foto tidak lagi dirujuk katalog.
 Akun pembaca tidak diberi izin tulis katalog. Endpoint akun: `POST /api/auth/register`,
 `POST /api/auth/login`, `GET /api/auth/me`, `POST /api/auth/refresh`, dan `POST /api/auth/logout`.
 PWA mengaksesnya melalui origin sendiri; sesi memakai cookie `HttpOnly`, bukan token di
-`localStorage`. Katalog tetap publik dan favorit tetap tersimpan per browser, bukan per akun.
+`localStorage`. Katalog tetap publik.
+
+Favorit tamu disimpan di browser. Setelah masuk, favorit tamu digabung ke akun dan tersedia
+di perangkat lain. Saat offline, pengguna yang masuk dapat melihat daftar tersimpan,
+tetapi perubahan favorit akun memerlukan koneksi. Keluar menghapus salinan akun dari
+perangkat, bukan dari database.
+
+- `GET /api/auth/favorites` — daftar favorit akun yang sedang masuk.
+- `PUT /api/auth/favorites/:id` — simpan resep; aman diulang.
+- `DELETE /api/auth/favorites/:id` — hapus resep dari favorit.
+
+Endpoint favorit menggunakan cookie sesi pembaca, bukan kunci admin. Operasi tulis juga
+memerlukan `X-Favorites-User` berisi ID sesi yang ditampilkan API, agar tab lama tidak
+menulis ke akun yang berbeda. ID pengguna untuk query selalu diambil dari sesi terverifikasi.
 
 ## Cara Menjalankan Lokal
 
@@ -104,6 +117,9 @@ PWA mengaksesnya melalui origin sendiri; sesi memakai cookie `HttpOnly`, bukan t
 skrip tersebut saat upgrade disetujui. Jangan ulangi schema atau seed. Skrip ini menghapus
 policy lama pada tiga tabel katalog sebelum mengaktifkan RLS, karena akses aplikasi memakai
 service role melalui API.
+
+Untuk database yang sudah ada, siapkan favorit per akun dengan `api/sql/upgrade-favorites.sql`.
+Uji migrasi dan alur dua akun di proyek Supabase pengujian sebelum merilis fitur.
 
 ### 2. API
 

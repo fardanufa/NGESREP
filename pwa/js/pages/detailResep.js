@@ -1,6 +1,6 @@
 import { getRecipe } from "../api.js";
 import { backLink, esc, imgTag, loadingBox, rupiah, stateBox, retryButton, toast } from "../ui.js";
-import { isFavorite, removeFavorite, saveFavorite } from "../favorites.js";
+import { FAVORITE_ACCOUNT_KEY, isFavorite, refreshFavorites, removeFavorite, saveFavorite } from "../favorites.js";
 
 function ingredientItem(text) {
   return `
@@ -33,7 +33,7 @@ function view(recipe) {
         <div class="absolute inset-0 bg-gradient-to-t from-inverse-surface/80 via-transparent to-black/20"></div>
 
         <div class="absolute top-3 right-3 z-10">
-          <button type="button" data-fav aria-label="Simpan ke favorit" class="w-11 h-11 rounded-full bg-surface-container-lowest/90 backdrop-blur-md flex items-center justify-center shadow-md active:scale-95 transition-all">
+          <button type="button" data-fav aria-label="Simpan ke favorit" class="w-11 h-11 rounded-full bg-surface-container-lowest/90 backdrop-blur-md flex items-center justify-center shadow-md active:scale-95 transition-all disabled:opacity-50">
             <span aria-hidden="true" class="material-symbols-outlined text-[22px]">favorite</span>
           </button>
         </div>
@@ -101,7 +101,7 @@ function view(recipe) {
   </div>`;
 }
 
-function mount(main, recipe) {
+async function mount(main, recipe, signal) {
   const checkboxes = main.querySelectorAll(".ingredient-checkbox");
   const counter = main.querySelector("[data-counter]");
 
@@ -126,8 +126,8 @@ function mount(main, recipe) {
   const favButton = main.querySelector("[data-fav]");
   const icon = favButton.querySelector(".material-symbols-outlined");
 
-  let active = isFavorite(recipe.id);
   function paint() {
+    const active = isFavorite(recipe.id);
     icon.style.fontVariationSettings = `'FILL' ${active ? 1 : 0}`;
     icon.classList.toggle("text-primary", active);
     icon.classList.toggle("text-on-surface-variant", !active);
@@ -135,17 +135,24 @@ function mount(main, recipe) {
   }
 
   paint();
+  window.addEventListener("storage", (event) => {
+    if (event.key === FAVORITE_ACCOUNT_KEY || event.key === null) paint();
+  }, { signal });
+  favButton.disabled = true;
+  await refreshFavorites(signal).catch(() => {});
+  if (signal.aborted) return;
+  paint();
+  favButton.disabled = false;
   favButton.addEventListener("click", async () => {
     if (favButton.disabled) return;
     favButton.disabled = true;
     try {
-      const save = !active;
+      const save = !isFavorite(recipe.id);
       if (save) await saveFavorite(recipe);
       else await removeFavorite(recipe.id);
-      active = save;
-      paint();
-    } catch {
-      toast("Favorit tidak tersimpan. Penyimpanan browser penuh atau diblokir.");
+      if (!signal.aborted) paint();
+    } catch (error) {
+      if (!signal.aborted) toast(error.status ? error.message : "Favorit tidak tersimpan. Periksa koneksi atau penyimpanan browser.");
     } finally {
       favButton.disabled = false;
     }
@@ -159,7 +166,7 @@ export async function detailResep(main, id, signal) {
     if (signal.aborted) return;
     document.title = `${recipe.name} · NGESREP`;
     main.innerHTML = view(recipe);
-    mount(main, recipe);
+    void mount(main, recipe, signal);
   } catch (err) {
     if (signal.aborted) return;
     if ([404, 410].includes(err.status)) {

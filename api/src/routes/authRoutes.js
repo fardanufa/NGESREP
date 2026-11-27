@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { createClient } from "@supabase/supabase-js";
+import favoriteRoutes from "./favoriteRoutes.js";
 
 const router = Router();
 const path = "/api/auth";
@@ -25,7 +26,7 @@ function sendSession(req, res, session, status = 200) {
   const options = cookieOptions(req);
   res.cookie(access, session.access_token, { ...options, maxAge: session.expires_in * 1000 });
   res.cookie(refresh, session.refresh_token, { ...options, maxAge: week });
-  return res.status(status).json({ email: session.user.email });
+  return res.status(status).json({ id: session.user.id, email: session.user.email });
 }
 
 router.use((req, res, next) => {
@@ -61,13 +62,20 @@ for (const action of ["login", "register"]) {
   });
 }
 
-router.get("/me", async (req, res) => {
+async function requireUser(req, res, next) {
   const token = cookie(req, access);
   if (!token) return fail(res, null, "Silakan masuk.");
   const { data, error } = await res.locals.auth.getUser(token);
   if (error || !data.user) return fail(res, error, "Sesi berakhir.");
-  res.json({ email: data.user.email });
+  res.locals.user = data.user;
+  next();
+}
+
+router.get("/me", requireUser, (_req, res) => {
+  const { id, email } = res.locals.user;
+  res.json({ id, email });
 });
+router.use("/favorites", requireUser, favoriteRoutes);
 
 router.post("/refresh", async (req, res) => {
   const token = cookie(req, refresh);

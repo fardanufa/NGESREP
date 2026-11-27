@@ -8,6 +8,7 @@ test("HTTP reads, write authorization and input validation", async (t) => {
   const calls = [];
   const authCalls = [];
   const uploads = [];
+  const favoriteRows = new Set();
   let logoutStatus = 204;
   async function listen(server) {
     server.listen(0, "127.0.0.1");
@@ -31,7 +32,9 @@ test("HTTP reads, write authorization and input validation", async (t) => {
       let data = { access_token: "reader-token", refresh_token: "refresh-token", expires_in: 3600, user };
       let status = 200;
       if (req.url.startsWith("/auth/v1/signup")) data = user;
-      if (req.url === "/auth/v1/user") data = user;
+      if (req.url === "/auth/v1/user") {
+        data = req.headers.authorization === "Bearer other-token" ? { ...user, id: "other" } : user;
+      }
       if (req.url.includes("grant_type=password") && payload.password !== "test-password") {
         status = payload.password === "limited" ? 429 : 400;
         data = { msg: "upstream detail" };
@@ -46,6 +49,23 @@ test("HTTP reads, write authorization and input validation", async (t) => {
       return res.end(JSON.stringify(data));
     }
     calls.push([req.method, req.url, req.headers.apikey]);
+    if (req.url.startsWith("/rest/v1/favorites")) {
+      const query = new URL(req.url, "http://localhost").searchParams;
+      const owner = query.get("user_id")?.slice(3);
+      res.setHeader("Content-Type", "application/json");
+      if (req.method === "POST") {
+        assert.equal(query.get("on_conflict"), "user_id,recipe_id");
+        assert.match(req.headers.prefer, /resolution=ignore-duplicates/);
+        favoriteRows.add(`${payload.user_id}/${payload.recipe_id}`);
+        return res.end("[]");
+      }
+      if (req.method === "DELETE") {
+        favoriteRows.delete(`${owner}/${query.get("recipe_id")?.slice(3)}`);
+        return res.end("[]");
+      }
+      return res.end(JSON.stringify([...favoriteRows].filter((row) => row.startsWith(`${owner}/`))
+        .map((row) => ({ recipes: { id: row.split("/")[1], name: "Nasi" } }))));
+    }
     if (req.url.includes("boom")) {
       res.writeHead(500, { "Content-Type": "application/json" });
       return res.end('{"message":"secret internals"}');
@@ -126,7 +146,7 @@ test("HTTP reads, write authorization and input validation", async (t) => {
   assert.equal(register.headers.get("set-cookie"), null);
   const login = await request("POST", "auth/login", credentials);
   assert.equal(login.status, 200);
-  assert.deepEqual(await login.json(), { email: credentials.email });
+  assert.deepEqual(await login.json(), { id: "fixture", email: credentials.email });
   assert.equal(login.headers.get("cache-control"), "no-store");
   const cookies = login.headers.getSetCookie();
   assert.equal(cookies.length, 2);
@@ -140,7 +160,27 @@ test("HTTP reads, write authorization and input validation", async (t) => {
   assert.equal(calls.length, count);
   assert.equal(authCalls.length, authCount);
   const me = await fetch(`${url}/api/auth/me`, { headers: { cookie } });
-  assert.deepEqual(await me.json(), { email: credentials.email });
+  assert.deepEqual(await me.json(), { id: "fixture", email: credentials.email });
+  const favorites = (method, recipeId = "", session = cookie, owner = "fixture", body) =>
+    fetch(`${url}/api/auth/favorites${recipeId ? `/${recipeId}` : ""}`, {
+      method, headers: { Cookie: session, "X-Favorites-User": owner, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  assert.equal((await favorites("GET", "", "")).status, 401);
+  assert.equal((await favorites("PUT", "bad-uuid")).status, 404);
+  assert.equal((await favorites("PUT", id, cookie, "other")).status, 409);
+  for (let i = 0; i < 2; i++) {
+    assert.equal((await favorites("PUT", id, cookie, "fixture", { user_id: "other" })).status, 204);
+  }
+  const ownFavorites = await favorites("GET");
+  assert.equal(ownFavorites.headers.get("cache-control"), "no-store");
+  assert.deepEqual(await ownFavorites.json(), { userId: "fixture", favorites: [{ id, name: "Nasi" }] });
+  const otherCookie = "ngesrep_access=other-token";
+  assert.deepEqual(await (await favorites("GET", "", otherCookie)).json(), { userId: "other", favorites: [] });
+  assert.equal((await favorites("DELETE", id, otherCookie, "other")).status, 204);
+  assert.equal(favoriteRows.size, 1);
+  assert.equal((await favorites("DELETE", id)).status, 204);
+  assert.equal(favoriteRows.size, 0);
   const renew = await fetch(`${url}/api/auth/refresh`, { method: "POST", headers: { cookie, "Content-Type": "application/json" }, body: "{}" });
   assert.equal(renew.status, 200);
   const logout = await fetch(`${url}/api/auth/logout`, { method: "POST", headers: { cookie, "Content-Type": "application/json" }, body: "{}" });

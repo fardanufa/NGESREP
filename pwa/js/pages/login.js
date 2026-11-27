@@ -1,4 +1,6 @@
 import { backLink, esc, loadingBox, toast } from "../ui.js";
+import { account } from "../account.js";
+import { refreshFavorites, setFavoriteAccount, withFavoritesLock } from "../favorites.js";
 
 function formHTML(mode) {
   const isLogin = mode === "login";
@@ -55,16 +57,6 @@ function formHTML(mode) {
   </div>`;
 }
 
-async function account(action, signal, body) {
-  const res = await fetch(`/api/auth/${action}`, action === "me" ? { signal } : {
-    signal, method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body ?? {}),
-  });
-  if (res.status === 204) return;
-  const data = await res.json();
-  if (!res.ok) throw Object.assign(new Error(data.error || "Layanan akun belum tersedia."), { status: res.status });
-  return data;
-}
-
 function showForm(main, mode, signal) {
   document.title = "Masuk / Daftar · NGESREP";
   main.innerHTML = formHTML(mode);
@@ -105,13 +97,22 @@ function showForm(main, mode, signal) {
     btn.textContent = mode === "login" ? "Memproses..." : "Mendaftar...";
 
     try {
-      const data = await account(mode, signal, { email, password });
+      const data = await withFavoritesLock(async () => {
+        const user = await account(mode, signal, { email, password });
+        if (user.id) setFavoriteAccount(user.id);
+        return user;
+      });
       if (signal.aborted) return;
       if (data.needsConfirmation) {
         showForm(main, "login", signal);
         main.querySelector("#email").value = email;
         toast("Cek email untuk konfirmasi, lalu masuk.");
-      } else showAccount(main, data.email, signal);
+      } else {
+        showAccount(main, data.email, signal);
+        void refreshFavorites(signal).catch(() => {
+          if (!signal.aborted) toast("Favorit belum tersinkron. Buka Favorit untuk mencoba lagi.");
+        });
+      }
     } catch (err) {
       if (signal.aborted) return;
       showError(err.status ? err.message : "Tidak dapat menghubungi layanan akun. Periksa koneksi lalu coba lagi.");
@@ -138,7 +139,10 @@ function showAccount(main, email, signal) {
   button.onclick = async () => {
     button.disabled = true;
     try {
-      await account("logout", signal);
+      await withFavoritesLock(async () => {
+        await account("logout", signal, {});
+        setFavoriteAccount();
+      });
       if (!signal.aborted) showForm(main, "login", signal);
     } catch {
       if (signal.aborted) return;
@@ -151,9 +155,18 @@ function showAccount(main, email, signal) {
 export async function login(main, _id, signal) {
   main.innerHTML = loadingBox("Memeriksa sesi…");
   try {
-    const data = await account("me", signal).catch((err) => {
-      if (err.status !== 401) throw err;
-      return account("refresh", signal);
+    const data = await withFavoritesLock(async () => {
+      try {
+        const user = await account("me", signal).catch((err) => {
+          if (err.status !== 401) throw err;
+          return account("refresh", signal, {});
+        });
+        setFavoriteAccount(user.id);
+        return user;
+      } catch (err) {
+        if (err.status === 401) setFavoriteAccount();
+        throw err;
+      }
     });
     if (!signal.aborted) showAccount(main, data.email, signal);
   } catch (err) {
