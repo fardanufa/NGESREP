@@ -2,6 +2,7 @@ import { Router, json } from "express";
 import { accessCookie as access, cookie, failAuth as fail, readCredentials, requestAuth, requireUser } from "../auth.js";
 import adminRoutes from "./adminRoutes.js";
 import favoriteRoutes from "./favoriteRoutes.js";
+import profileRoutes from "./profileRoutes.js";
 
 const router = Router();
 const path = "/api/auth";
@@ -19,6 +20,10 @@ function sendSession(req, res, session, status = 200) {
 }
 
 router.use("/admin", adminRoutes);
+router.use("/profile", (_req, res, next) => {
+  res.set("Cache-Control", "no-store");
+  next();
+}, requireUser, profileRoutes);
 router.use(json({ limit: "8kb" }), (req, res, next) => {
   res.set("Cache-Control", "no-store");
   if (req.method === "POST" && !req.is("application/json")) {

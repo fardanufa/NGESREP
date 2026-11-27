@@ -134,6 +134,7 @@ function showAccount(main, email, signal) {
     <h1 class="font-headline-lg text-headline-lg">Akun NGESREP</h1>
     <p class="break-all">Masuk sebagai ${esc(email)}</p>
     <div class="flex flex-wrap items-center gap-2">
+      ${backLink("#/profil", "Lihat profil")}
       ${backLink("#/beranda", "Ke Beranda")}
       <button type="button" class="min-h-11 rounded-full bg-surface-container-low px-6 py-3 text-on-surface hover:bg-surface-container-high focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50">Keluar</button>
     </div>

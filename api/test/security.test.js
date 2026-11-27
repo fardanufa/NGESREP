@@ -9,6 +9,7 @@ test("HTTP reads, write authorization and input validation", async (t) => {
   const authCalls = [];
   const uploads = [];
   const favoriteRows = new Set();
+  const profiles = new Map();
   let logoutStatus = 204;
   let adminRole = "admin";
   async function listen(server) {
@@ -61,6 +62,25 @@ test("HTTP reads, write authorization and input validation", async (t) => {
       return res.end(JSON.stringify(data));
     }
     calls.push([req.method, req.url, req.headers.apikey]);
+    if (req.url.startsWith("/rest/v1/profiles")) {
+      const query = new URL(req.url, "http://localhost").searchParams;
+      assert.equal(req.headers.apikey, "service-fixture");
+      res.setHeader("Content-Type", "application/json");
+      if (req.method === "POST") {
+        assert.match(req.headers.prefer, /resolution=merge-duplicates/);
+        assert.deepEqual(Object.keys(payload).sort(), [
+          ...(payload.avatar === undefined ? [] : ["avatar"]), "display_name",
+          ...(payload.nim === undefined ? [] : ["nim"]), "user_id",
+        ]);
+        const { user_id, ...fields } = payload;
+        const profile = { ...profiles.get(user_id), ...fields };
+        profiles.set(user_id, profile);
+        return res.end(JSON.stringify(profile));
+      }
+      assert.equal(query.get("select"), "display_name,nim,avatar");
+      const profile = profiles.get(query.get("user_id")?.slice(3));
+      return res.end(JSON.stringify(profile ? [profile] : []));
+    }
     if (req.url.startsWith("/rest/v1/favorites")) {
       const query = new URL(req.url, "http://localhost").searchParams;
       const owner = query.get("user_id")?.slice(3);
@@ -193,6 +213,40 @@ test("HTTP reads, write authorization and input validation", async (t) => {
   assert.equal(favoriteRows.size, 1);
   assert.equal((await favorites("DELETE", id)).status, 204);
   assert.equal(favoriteRows.size, 0);
+
+  const profile = (method, session = cookie, body) => fetch(`${url}/api/auth/profile`, {
+    method, headers: { Cookie: session, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const avatar = "data:image/jpeg;base64,/9j//9k=";
+  const edit = { id: "fixture", display_name: "  Rani  ", nim: " 001234 ", avatar, user_id: "other", role: "admin" };
+  const beforeProfile = calls.length;
+  assert.equal((await profile("GET", "")).status, 401);
+  assert.equal((await profile("PUT", "", edit)).status, 401);
+  assert.equal((await profile("PUT", otherCookie, edit)).status, 409);
+  assert.equal((await profile("PUT", cookie, { ...edit, display_name: " " })).status, 400);
+  assert.equal((await profile("PUT", cookie, { ...edit, display_name: "a".repeat(61) })).status, 400);
+  for (const nim of [123, "12a", "1".repeat(31)]) {
+    assert.equal((await profile("PUT", cookie, { ...edit, nim })).status, 400);
+  }
+  assert.equal((await profile("PUT", cookie, { ...edit, avatar: "data:image/jpeg;base64,AAAA" })).status, 400);
+  assert.equal((await profile("PUT", cookie, { ...edit, avatar: "https://example.com/photo" })).status, 400);
+  assert.equal((await profile("PUT", cookie, { ...edit, avatar: "a".repeat(68000) })).status, 413);
+  assert.equal(calls.length, beforeProfile);
+  const emptyProfile = { email: credentials.email, display_name: "", nim: "", avatar: null };
+  assert.deepEqual(await (await profile("GET")).json(), { id: "fixture", ...emptyProfile });
+  const updated = await profile("PUT", cookie, edit);
+  assert.equal(updated.status, 200);
+  assert.equal(updated.headers.get("cache-control"), "no-store");
+  assert.deepEqual(await updated.json(), { id: "fixture", ...emptyProfile, display_name: "Rani", nim: "001234", avatar });
+  assert.deepEqual(await (await profile("GET", otherCookie)).json(), { id: "other", ...emptyProfile });
+  assert.equal((await profile("PUT", otherCookie, { id: "other", display_name: "Bima" })).status, 200);
+  assert.equal((await profile("PUT", cookie, { id: "fixture", display_name: "Rani Baru" })).status, 200);
+  assert.deepEqual(await (await profile("GET")).json(), { id: "fixture", ...emptyProfile, display_name: "Rani Baru", nim: "001234", avatar });
+  assert.deepEqual(await (await profile("GET", otherCookie)).json(), { id: "other", ...emptyProfile, display_name: "Bima" });
+  const cleared = await profile("PUT", cookie, { id: "fixture", display_name: "Rani Baru", nim: "" });
+  assert.deepEqual(await cleared.json(), { id: "fixture", ...emptyProfile, display_name: "Rani Baru", avatar });
+
   const renew = await fetch(`${url}/api/auth/refresh`, { method: "POST", headers: { cookie, "Content-Type": "application/json" }, body: "{}" });
   assert.equal(renew.status, 200);
   const logout = await fetch(`${url}/api/auth/logout`, { method: "POST", headers: { cookie, "Content-Type": "application/json" }, body: "{}" });

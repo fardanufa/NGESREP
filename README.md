@@ -23,7 +23,8 @@ Akronim: **N**ikmat, **G**ampang, **E**konomis, **S**ehat — **RE**sep **P**rak
 - Tips dapur: daftar tips dengan pencarian, plus detail tips dan "Tips Lainnya".
 - Favorit: favorit tamu tersimpan di perangkat; favorit akun disinkronkan ke Supabase
   dan dapat dilihat offline dari salinan di perangkat.
-- Profil: data pembuat dan penjelasan aplikasi.
+- Profil: pengguna yang masuk bisa mengganti nama tampilan, foto, dan NIM; data tersimpan per akun.
+  Penjelasan aplikasi tetap ada di halaman yang sama.
 - Akun: buka **Profil → Akun · Masuk / Daftar** untuk mendaftar, masuk, atau keluar.
 - PWA: bisa di-install dan tetap menampilkan data yang pernah dibuka saat offline.
 
@@ -102,6 +103,10 @@ Akun pembaca tidak diberi izin tulis katalog. Endpoint akun: `POST /api/auth/reg
 PWA mengaksesnya melalui origin sendiri; sesi memakai cookie `HttpOnly`, bukan token di
 `localStorage`. Katalog tetap publik.
 
+**Profil akun:** buka **Profil → Edit profil**. Foto JPEG, PNG, atau WebP hingga 5 MB
+dipotong persegi dan diperkecil di browser sebelum dikirim. `GET /api/auth/profile` dan
+`PUT /api/auth/profile` memakai sesi akun; profil tidak tersedia secara publik atau offline.
+
 Favorit tamu disimpan di browser. Setelah masuk, favorit tamu digabung ke akun dan tersedia
 di perangkat lain. Saat offline, pengguna yang masuk dapat melihat daftar tersimpan,
 tetapi perubahan favorit akun memerlukan koneksi. Keluar menghapus salinan akun dari
@@ -129,7 +134,8 @@ skrip tersebut saat upgrade disetujui. Jangan ulangi schema atau seed. Skrip ini
 policy lama pada tiga tabel katalog sebelum mengaktifkan RLS, karena akses aplikasi memakai
 service role melalui API.
 
-Untuk database yang sudah ada, siapkan favorit per akun dengan `api/sql/upgrade-favorites.sql`.
+Untuk database yang sudah ada, siapkan favorit dengan `api/sql/upgrade-favorites.sql` dan
+profil akun dengan `api/sql/upgrade-profiles.sql` sebelum merilis API/PWA baru.
 Uji migrasi dan alur dua akun di proyek Supabase pengujian sebelum merilis fitur.
 
 ### 2. API
@@ -196,6 +202,8 @@ Cara deploy ulang dari nol:
 - Masuk dengan akun yang sama di dua browser. Simpan satu resep di browser pertama,
   buka Favorit di browser kedua, lalu hapus favorit itu. Muat ulang Favorit di browser
   pertama dan pastikan resep sudah tidak ada di daftar favorit.
+- Ganti nama, foto, dan NIM lewat **Profil → Edit profil**, lalu buka profil dari browser lain
+  dengan akun yang sama. Keluar dan masuk dengan akun kedua; profil pertama tidak boleh tampil.
 
 **Rilis akun:** isi `SUPABASE_PUBLISHABLE_KEY` (atau `SUPABASE_ANON_KEY`) pada proyek API,
 aktifkan provider Email di Supabase, dan atur Site URL ke URL PWA. Dengan konfirmasi email

@@ -36,6 +36,16 @@ create table favorites (
 create index favorites_recipe_id_idx on favorites (recipe_id);
 alter table favorites enable row level security;
 
+create table public.profiles (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  display_name text not null check (char_length(display_name) between 1 and 60),
+  nim text check (nim ~ '^[0-9]{1,30}$'),
+  avatar text check (char_length(avatar) <= 64000)
+);
+alter table public.profiles enable row level security;
+revoke all on public.profiles from anon, authenticated;
+grant select, insert, update on public.profiles to service_role;
+
 alter table categories enable row level security;
 alter table recipes enable row level security;
 alter table tips enable row level security;
