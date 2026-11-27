@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="pwa/images/logo-full.png" alt="NGESREP" width="320">
+  <img src="pwa/icons/icon-192.png" alt="NGESREP" width="96">
 </p>
 
 <p align="center"><strong>Nikmat, Gampang, Ekonomis, Sehat</strong></p>
@@ -7,8 +7,7 @@
 # NGESREP
 
 Aplikasi resep masakan anak kos hemat berbasis **Progressive Web App (PWA)**. Berisi 15 resep
-praktis dan 6 tips dapur, lengkap dengan pencarian, filter kategori, dan daftar favorit yang
-tersimpan di perangkat.
+praktis dan 6 tips dapur, lengkap dengan pencarian, filter kategori, dan daftar favorit.
 
 ## Asal Nama
 
@@ -22,7 +21,8 @@ Akronim: **N**ikmat, **G**ampang, **E**konomis, **S**ehat — **RE**sep **P**rak
 - Beranda: daftar resep dengan pencarian dan filter kategori (bisa digabung).
 - Detail resep: bahan yang bisa dicentang dengan penghitung, langkah memasak, tombol favorit.
 - Tips dapur: daftar tips dengan pencarian, plus detail tips dan "Tips Lainnya".
-- Favorit: tersimpan di `localStorage`, tetap tampil saat offline.
+- Favorit: favorit tamu tersimpan di perangkat; favorit akun disinkronkan ke Supabase
+  dan dapat dilihat offline dari salinan di perangkat.
 - Profil: data pembuat dan penjelasan aplikasi.
 - Akun: buka **Profil → Akun · Masuk / Daftar** untuk mendaftar, masuk, atau keluar.
 - PWA: bisa di-install dan tetap menampilkan data yang pernah dibuka saat offline.
@@ -73,10 +73,11 @@ mengembalikan `503`.
 
 ### Kelola Katalog
 
-Buka **Profil → Masuk admin** (`#/kelola`) dan masuk dengan email serta kata sandi akun
-admin. Setelah kembali ke Beranda, gunakan **Tambah Resep** atau tombol **Ubah** dan
-**Hapus** pada kartu resep. API memberi cookie admin `HttpOnly` terpisah yang berlaku satu
-jam; kontrol ini tidak tampil untuk pembaca. Gunakan **Keluar admin** di Beranda setelah selesai.
+Buka **Profil → Akun · Masuk / Daftar**. Pembaca dan admin masuk lewat form yang sama.
+Jika akun memiliki akses admin, Beranda menampilkan **Tambah Resep**, **Ubah**, dan **Hapus**.
+API memverifikasi akun dan role pada setiap request `/api/auth/admin/*` menggunakan sesi
+akun `HttpOnly` yang sama dengan favorit. Akun yang mendaftar dari aplikasi tidak diberi role admin.
+Gunakan **Keluar** di halaman Akun untuk mengakhiri sesi.
 Tips dan kategori tidak punya UI admin di PWA; keduanya tetap bisa dikelola lewat API tulis langsung.
 Penghapusan kategori tidak menghapus resep; resep terkait menjadi tanpa kategori.
 
@@ -86,10 +87,8 @@ terkonfirmasi. Dari lingkungan server tepercaya, gunakan Supabase Auth Admin API
 client service role). Penanda harus di `app_metadata`, bukan `user_metadata`. Uji di proyek
 pengujian sebelum menyiapkan akun produksi. Tidak perlu tabel atau migrasi admin.
 
-`ADMIN_API_KEY` tetap hanya di server: untuk menandatangani sesi admin dan menerima
-request tulis langsung via Bearer. Rotasi kunci sebelum rilis jika sebelumnya dibagikan
-untuk login; rotasi membatalkan semua sesi admin. Pencabutan role berlaku untuk login baru;
-sesi yang sudah terbit kedaluwarsa dalam satu jam.
+`ADMIN_API_KEY` tetap hanya di server untuk request tulis langsung via Bearer, bukan
+untuk login admin. Pencabutan role memblokir request admin berikutnya.
 
 Foto resep dan tips diunggah lewat API ke Supabase Storage. Siapkan bucket publik bernama
 `resep` pada **proyek pengujian** terlebih dahulu; izinkan JPEG, PNG, dan WebP hingga 2 MB.
@@ -158,11 +157,13 @@ npm install
 npm run build:css          # menghasilkan css/style.css
 ```
 
-Buka `http://localhost:3000/index.html` untuk PWA dan `http://localhost:3000/index.html#/kelola`
-untuk admin. Server statis terpisah tidak menangani login.
+Buka `http://localhost:3000/index.html` untuk PWA, lalu **Profil → Akun · Masuk / Daftar**.
+Server statis terpisah tidak menangani login.
 
-`API_BASE_URL` di `pwa/js/config.js` menunjuk ke API produksi. Untuk pengembangan lokal,
-ubah ke `http://localhost:3000`. Gunakan HTTPS atau localhost agar penyimpanan favorit lintas tab tersedia.
+Di `localhost` atau `127.0.0.1`, PWA memakai API di alamat yang sama; selain itu,
+`API_BASE_URL` di `pwa/js/config.js` menunjuk ke API produksi. Gunakan HTTPS atau localhost
+agar sinkronisasi sesi dan favorit lintas tab dapat memakai Web Locks.
+Untuk mencoba CRUD admin, gunakan `localhost` atau set `ADMIN_ORIGIN` sesuai alamat yang dibuka.
 
 ## Deploy
 
@@ -186,6 +187,16 @@ Cara deploy ulang dari nol:
    tanpa build command (CSS sudah dikompilasi dan ikut di-commit).
 4. Buka URL PWA di HP, uji install dan mode offline.
 
+**Cek sebelum demo** (uji perubahan data di lingkungan pengujian):
+
+- Masuk sebagai pembaca lewat Profil. Pastikan tombol **Tambah Resep**, **Ubah**, dan
+  **Hapus** tidak muncul di Beranda. Keluar, lalu masuk lewat form yang sama sebagai admin.
+- Sebagai admin, tambahkan satu resep uji dengan foto, ubah, lalu hapus. Pastikan daftar
+  Beranda mencerminkan masing-masing perubahan.
+- Masuk dengan akun yang sama di dua browser. Simpan satu resep di browser pertama,
+  buka Favorit di browser kedua, lalu hapus favorit itu. Muat ulang Favorit di browser
+  pertama dan pastikan resep sudah tidak ada di daftar favorit.
+
 **Rilis akun:** isi `SUPABASE_PUBLISHABLE_KEY` (atau `SUPABASE_ANON_KEY`) pada proyek API,
 aktifkan provider Email di Supabase, dan atur Site URL ke URL PWA. Dengan konfirmasi email
 aktif, pembaca membuka tautan konfirmasi lalu kembali ke Profil → Akun untuk masuk.
@@ -193,8 +204,7 @@ Jika alamat API berubah, sesuaikan juga tujuan rewrite di `pwa/vercel.json`.
 API admin menerima request tulis dari `https://ngesrep.vercel.app` dan
 `https://ngesrep-pwa.vercel.app` di Vercel secara bawaan. Untuk domain lain, set `ADMIN_ORIGIN` pada proyek API ke origin PWA
 yang tepat (tanpa garis miring penutup). Sebelum mengaktifkan fitur di produksi,
-siapkan bucket `resep` dengan pengaturan di atas dan terapkan rate limit platform
-pada `POST /api/admin/session`. Jangan arahkan pengujian CRUD ke database produksi.
+siapkan bucket `resep` dengan pengaturan di atas. Jangan arahkan pengujian CRUD ke database produksi.
 Endpoint akun meneruskan batas percobaan Supabase (`429`). Sebelum membuka pendaftaran umum,
 cek batas dan pengiriman email di Supabase serta aktifkan rate limit platform pada
 `/api/auth/login` dan `/api/auth/register`; jangan mengandalkan penghitung per proses Vercel.

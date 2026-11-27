@@ -7,14 +7,14 @@ function formHTML(mode) {
   return `
   <div class="max-w-md mx-auto px-gutter py-space-xl">
     <div class="text-center mb-8">
-      <img src="images/logo-full.png" alt="NGESREP" class="h-12 w-auto mx-auto mb-4 object-contain" onerror="this.remove()">
+      <img src="icons/icon-192.png" alt="NGESREP" class="h-16 w-16 mx-auto mb-4 object-contain" onerror="this.remove()">
       <h1 class="font-headline-lg text-headline-lg text-on-surface font-bold">${isLogin ? "Masuk" : "Daftar"}</h1>
       <p class="font-body-md text-body-md text-on-surface-variant mt-2">
         ${isLogin ? "Masuk ke akun NGESREP" : "Buat akun NGESREP dengan email"}
       </p>
     </div>
 
-    <form id="auth-form" class="bg-surface-container-lowest rounded-2xl p-space-lg shadow-sm space-y-4">
+    <form id="auth-form" method="post" class="bg-surface-container-lowest rounded-2xl p-space-lg shadow-sm space-y-4">
       <p id="form-error" role="alert" class="hidden rounded-xl bg-error-container text-on-error-container px-3 py-2 font-body-sm text-body-sm"></p>
 
       <div>
@@ -133,7 +133,10 @@ function showAccount(main, email, signal) {
   main.innerHTML = `<section class="w-full max-w-md mx-auto px-gutter py-space-xl space-y-4">
     <h1 class="font-headline-lg text-headline-lg">Akun NGESREP</h1>
     <p class="break-all">Masuk sebagai ${esc(email)}</p>
-    <button type="button" class="px-6 py-3 rounded-full bg-primary text-on-primary">Keluar</button>
+    <div class="flex flex-wrap items-center gap-2">
+      ${backLink("#/beranda", "Ke Beranda")}
+      <button type="button" class="min-h-11 rounded-full bg-surface-container-low px-6 py-3 text-on-surface hover:bg-surface-container-high focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50">Keluar</button>
+    </div>
   </section>`;
   const button = main.querySelector("button");
   button.onclick = async () => {

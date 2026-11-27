@@ -1,17 +1,15 @@
-import { Router } from "express";
-import { failAuth as fail, readCredentials, requestAuth } from "../auth.js";
+import { Router, json } from "express";
+import { accessCookie as access, cookie, failAuth as fail, readCredentials, requestAuth, requireUser } from "../auth.js";
+import adminRoutes from "./adminRoutes.js";
 import favoriteRoutes from "./favoriteRoutes.js";
 
 const router = Router();
 const path = "/api/auth";
 const week = 7 * 24 * 60 * 60 * 1000;
-const access = "ngesrep_access";
 const refresh = "ngesrep_refresh";
 const cookieOptions = (req) => ({
   path, httpOnly: true, secure: Boolean(process.env.VERCEL) || req.secure, sameSite: "strict",
 });
-const cookie = (req, name) => (req.get("cookie") || "").split(";")
-  .map((part) => part.trim()).find((part) => part.startsWith(`${name}=`))?.slice(name.length + 1);
 
 function sendSession(req, res, session, status = 200) {
   const options = cookieOptions(req);
@@ -20,7 +18,8 @@ function sendSession(req, res, session, status = 200) {
   return res.status(status).json({ id: session.user.id, email: session.user.email });
 }
 
-router.use((req, res, next) => {
+router.use("/admin", adminRoutes);
+router.use(json({ limit: "8kb" }), (req, res, next) => {
   res.set("Cache-Control", "no-store");
   if (req.method === "POST" && !req.is("application/json")) {
     return res.status(415).json({ error: "Gunakan application/json" });
@@ -43,15 +42,6 @@ for (const action of ["login", "register"]) {
     if (!registering) return fail(res, null, "Sesi tidak tersedia.");
     return res.status(201).json({ needsConfirmation: true });
   });
-}
-
-async function requireUser(req, res, next) {
-  const token = cookie(req, access);
-  if (!token) return fail(res, null, "Silakan masuk.");
-  const { data, error } = await res.locals.auth.getUser(token);
-  if (error || !data.user) return fail(res, error, "Sesi berakhir.");
-  res.locals.user = data.user;
-  next();
 }
 
 router.get("/me", requireUser, (_req, res) => {

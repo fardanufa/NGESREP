@@ -34,15 +34,23 @@ test("recipe create skips upload and recipe edit uploads a selected photo first"
 });
 
 test("Beranda puts recipe controls outside the detail link only for an admin session", async (t) => {
-  let signedIn = false;
+  let sessionStatus = 401;
+  let canRefresh = false;
   t.mock.method(globalThis, "fetch", async (url) => {
-    if (url.endsWith("/api/admin/session")) {
-      return signedIn ? Response.json({ email: "admin@example.test" }) : Response.json({}, { status: 401 });
+    if (url.endsWith("/api/auth/admin/session")) {
+      return sessionStatus === 204 ? new Response(null, { status: 204 }) : Response.json({}, { status: sessionStatus });
+    }
+    if (url.endsWith("/api/auth/refresh")) {
+      if (!canRefresh) return Response.json({}, { status: 401 });
+      sessionStatus = 204;
+      return Response.json({ id: "admin" });
     }
     return Response.json(url.endsWith("/api/recipes") ? [{ id: "recipe", name: "Nasi" }] : []);
   });
-  for (const admin of [false, true]) {
-    signedIn = admin;
+  for (const [status, refreshable] of [[401, false], [403, false], [204, false], [401, true]]) {
+    sessionStatus = status;
+    canRefresh = refreshable;
+    const admin = status === 204 || refreshable;
     const node = () => ({ innerHTML: "", hidden: true, addEventListener() {} });
     const nodes = Object.fromEntries(
       ["#recipe-list", "#category-chips", "#recipe-search", "[data-admin-controls]", "[data-editor]", "h1", "[data-count]"]
@@ -57,10 +65,67 @@ test("Beranda puts recipe controls outside the detail link only for an admin ses
   }
 });
 
+test("Beranda retries an expired recipe save once and keeps the draft if sign-in is needed", async (t) => {
+  let refreshAllowed = false;
+  let writes = 0;
+  let refreshes = 0;
+  t.mock.method(globalThis, "fetch", async (url, options) => {
+    if (url === "/api/auth/admin/session") return new Response(null, { status: 204 });
+    if (url === "/api/auth/refresh") {
+      refreshes++;
+      return refreshAllowed ? Response.json({ id: "admin" }) : Response.json({}, { status: 401 });
+    }
+    if (url === "/api/auth/admin/recipes") {
+      assert.equal(JSON.parse(options.body).name, "Nasi telur");
+      return ++writes === 3 ? Response.json({ id: "recipe" }, { status: 201 }) : Response.json({}, { status: 401 });
+    }
+    return Response.json([]);
+  });
+  const values = new FormData();
+  values.set("name", "Nasi telur");
+  t.mock.method(globalThis, "FormData", function () { return values; });
+  const node = () => ({
+    innerHTML: "", hidden: true, addEventListener(type, fn) { this[type] = fn; },
+    replaceChildren() { this.innerHTML = ""; }, focus() {}, classList: { toggle() {} },
+  });
+  const nodes = Object.fromEntries(
+    ["#recipe-list", "#category-chips", "#recipe-search", "[data-admin-controls]", "[data-editor]", "h1", "[data-count]"]
+      .map((selector) => [selector, node()]),
+  );
+  const editor = nodes["[data-editor]"];
+  const fields = {
+    fieldset: node(), "[role=alert]": node(), "[type=submit]": node(),
+    "[data-cancel]": node(), "[type=file]": { files: [] },
+  };
+  const form = { querySelector: (selector) => fields[selector], elements: { namedItem: node } };
+  editor.querySelector = () => form;
+  editor.contains = () => !editor.hidden;
+  const main = { querySelector: (selector) => nodes[selector], querySelectorAll: () => [] };
+  const toasts = [];
+  globalThis.document = {
+    getElementById: () => ({ replaceChildren: (el) => toasts.push(el.textContent) }),
+    createElement: () => ({ remove() {} }),
+  };
+  t.after(() => { delete globalThis.document; });
+  await beranda(main, undefined, new AbortController().signal);
+  nodes["[data-admin-controls]"].click({ target: { closest: node } });
+  const submit = () => form.onsubmit({ preventDefault() {} });
+  await submit();
+  assert.equal(editor.hidden, false);
+  assert.match(fields["[role=alert]"].textContent, /masuk/i);
+  assert.equal(refreshes, 1);
+  refreshAllowed = true;
+  await submit();
+  assert.equal(refreshes, 2);
+  assert.equal(writes, 3);
+  assert.equal(editor.hidden, true);
+  assert.deepEqual(toasts, ["Resep ditambahkan."]);
+});
+
 test("admin upload is same-origin and sends the image without a bearer key", async (t) => {
   const photo = new Blob(["data"], { type: "image/png" });
   t.mock.method(globalThis, "fetch", async (url, options) => {
-    assert.equal(url, "/api/admin/upload");
+    assert.equal(url, "/api/auth/admin/upload");
     assert.deepEqual(options.headers, { "Content-Type": "image/png" });
     assert.equal(options.body, photo);
     assert.equal(options.method, "POST");

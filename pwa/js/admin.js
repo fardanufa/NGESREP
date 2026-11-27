@@ -1,6 +1,6 @@
 export async function adminRequest(path, { method = "GET", body, signal } = {}) {
   const type = body instanceof Blob ? body.type : "application/json";
-  const response = await fetch(`/api/admin/${path}`, {
+  const response = await fetch(`/api/auth/admin/${path}`, {
     method, signal, cache: "no-store", redirect: "error",
     ...(body !== undefined && {
       headers: { "Content-Type": type },

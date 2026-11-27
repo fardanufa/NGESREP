@@ -10,6 +10,7 @@ test("HTTP reads, write authorization and input validation", async (t) => {
   const uploads = [];
   const favoriteRows = new Set();
   let logoutStatus = 204;
+  let adminRole = "admin";
   async function listen(server) {
     server.listen(0, "127.0.0.1");
     await once(server, "listening");
@@ -29,16 +30,22 @@ test("HTTP reads, write authorization and input validation", async (t) => {
     if (req.url.startsWith("/auth/v1/")) {
       authCalls.push([req.url, req.headers.apikey]);
       const user = { id: "fixture", email: "tester@example.test", user_metadata: { role: "admin" } };
-      if (["admin@example.test", "unconfirmed@example.test"].includes(payload.email)) {
-        user.email = payload.email;
-        user.app_metadata = { role: "admin" };
-        if (payload.email === "admin@example.test") user.email_confirmed_at = "2026-01-01T00:00:00Z";
+      const adminIdentity = payload.email === "admin@example.test" || req.headers.authorization === "Bearer admin-token";
+      if (adminIdentity) {
+        user.id = "admin-fixture";
+        user.email = "admin@example.test";
+        user.app_metadata = { role: adminRole };
+        user.email_confirmed_at = "2026-01-01T00:00:00Z";
       }
-      let data = { access_token: "reader-token", refresh_token: "refresh-token", expires_in: 3600, user };
+      let data = { access_token: adminIdentity ? "admin-token" : "reader-token", refresh_token: "refresh-token", expires_in: 3600, user };
       let status = 200;
       if (req.url.startsWith("/auth/v1/signup")) data = user;
       if (req.url === "/auth/v1/user") {
         data = req.headers.authorization === "Bearer other-token" ? { ...user, id: "other" } : user;
+        if (req.headers.authorization === "Bearer invalid-token") {
+          status = 401;
+          data = { msg: "Invalid token" };
+        }
       }
       if (req.url.includes("grant_type=password") && payload.password !== "test-password") {
         status = payload.password === "limited" ? 429 : 400;
@@ -211,41 +218,26 @@ test("HTTP reads, write authorization and input validation", async (t) => {
 
   process.env.ADMIN_ORIGIN = "https://ngesrep.example";
   const admin = (method, path, body, session = "", origin = process.env.ADMIN_ORIGIN, type = "application/json") =>
-    fetch(`${url}/api/admin/${path}`, {
+    fetch(`${url}/api/auth/admin/${path}`, {
       method, headers: { Origin: origin, Cookie: session, "Content-Type": type },
       body: type === "application/json" ? JSON.stringify(body) : body,
     });
   const adminCredentials = { ...credentials, email: "admin@example.test" };
   const beforeAdminLogin = authCalls.length;
-  assert.equal((await admin("POST", "session", adminCredentials, "", "https://other.example")).status, 403);
-  assert.equal((await admin("POST", "session", { key })).status, 400);
-  assert.equal(authCalls.length, beforeAdminLogin);
-  for (const rejected of [
-    { ...credentials, role: "admin" },
-    { ...adminCredentials, email: "unconfirmed@example.test" },
-    { ...adminCredentials, password: "wrong" },
-  ]) {
-    const denied = await admin("POST", "session", rejected);
-    assert.equal(denied.status, 401);
-    assert.equal(denied.headers.get("set-cookie"), null);
-  }
-  assert.equal((await admin("POST", "session", { ...adminCredentials, password: "limited" })).status, 429);
-  assert.equal((await admin("GET", "session", undefined, cookie)).status, 401);
-  const session = await admin("POST", "session", adminCredentials);
-  assert.equal(session.status, 204);
-  assert.equal(session.headers.get("cache-control"), "no-store");
-  const adminCookie = session.headers.get("set-cookie");
-  for (const attribute of ["HttpOnly", "Secure", "SameSite=Strict", "Path=/api/admin", "Max-Age=3600"]) {
-    assert.ok(adminCookie.split("; ").includes(attribute));
-  }
-  const adminToken = adminCookie.split(";")[0];
-  assert.ok(authCalls.slice(beforeAdminLogin).every(([, apiKey]) => apiKey === "public-fixture"));
-  assert.ok(!adminToken.includes("reader-token") && !adminToken.includes("refresh-token"));
+  assert.equal((await admin("GET", "session")).status, 401);
+  assert.equal((await admin("GET", "session", undefined, "ngesrep_admin=legacy-session")).status, 401);
+  assert.equal((await admin("GET", "session", undefined, cookie)).status, 403);
+  assert.equal((await admin("POST", "recipes", { name: "Nasi", role: "admin" }, cookie)).status, 403);
+  const session = await request("POST", "auth/login", adminCredentials);
+  assert.equal(session.status, 200);
+  assert.deepEqual(await session.json(), { id: "admin-fixture", email: adminCredentials.email });
+  const adminToken = session.headers.getSetCookie().map((value) => value.split(";")[0]).join("; ");
+  assert.deepEqual(await (await favorites("GET", "", adminToken)).json(), { userId: "admin-fixture", favorites: [] });
   const who = await admin("GET", "session", undefined, adminToken);
-  assert.equal(who.status, 200);
+  assert.equal(who.status, 204);
   assert.equal(who.headers.get("cache-control"), "no-store");
-  assert.deepEqual(await who.json(), { email: adminCredentials.email });
-  assert.equal((await admin("GET", "session", undefined, `${adminToken}x`)).status, 401);
+  assert.equal((await admin("POST", "session", adminCredentials, adminToken)).status, 404);
+  assert.equal((await admin("GET", "session", undefined, "ngesrep_access=invalid-token")).status, 401);
   for (const resource of ["recipes", "tips", "categories"]) {
     const payload = resource === "tips" ? { title: "Tips" } : { name: "Nasi" };
     assert.equal((await admin("GET", resource, undefined, adminToken)).status, 200);
@@ -266,11 +258,10 @@ test("HTTP reads, write authorization and input validation", async (t) => {
   assert.match(path, /^\/storage\/v1\/object\/resep\/katalog\/[\da-f-]+\.png$/);
   assert.deepEqual([method, apiKey, type, body], ["POST", "service-fixture", "image/png", png]);
   assert.deepEqual(await uploaded.json(), { image_url: `${process.env.SUPABASE_URL}${path.replace("/object/", "/object/public/")}` });
-  const end = await admin("DELETE", "session", undefined, adminToken);
-  assert.equal(end.status, 204);
-  assert.match(end.headers.get("set-cookie"), /Expires=Thu, 01 Jan 1970/);
-  process.env.ADMIN_API_KEY = "rotated-test-key";
-  assert.equal((await admin("GET", "session", undefined, adminToken)).status, 401);
+  adminRole = "reader";
+  assert.equal((await admin("GET", "session", undefined, adminToken)).status, 403);
+  assert.equal((await admin("DELETE", `recipes/${id}`, undefined, adminToken)).status, 403);
+  assert.ok(authCalls.slice(beforeAdminLogin).every(([, apiKey]) => apiKey === "public-fixture"));
 });
 
 test("PostgreSQL integer bounds for prices and times", () => {

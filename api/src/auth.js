@@ -1,5 +1,20 @@
 import { createClient } from "@supabase/supabase-js";
 
+export const accessCookie = "ngesrep_access";
+export const cookie = (req, name) => (req.get("cookie") || "").split(";")
+  .map((part) => part.trim()).find((part) => part.startsWith(`${name}=`))?.slice(name.length + 1);
+
+export async function requireUser(req, res, next) {
+  const token = cookie(req, accessCookie);
+  if (!token) return failAuth(res, null, "Silakan masuk.");
+  const auth = res.locals.auth || requestAuth();
+  if (!auth) return res.status(503).json({ error: "Layanan akun belum dikonfigurasi." });
+  const { data, error } = await auth.getUser(token);
+  if (error || !data.user) return failAuth(res, error, "Sesi berakhir.");
+  res.locals.user = data.user;
+  next();
+}
+
 export function requestAuth() {
   const key = process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY;
   if (!key) return null;

@@ -110,13 +110,11 @@ test("typing before tips load does not replace the retry button", async (t) => {
 test("detail Back uses app history only when the previous entry is an app route", async () => {
   let back;
   const header = { querySelector: () => ({ addEventListener: (_type, fn) => { back = fn; } }) };
-  const form = { elements: { namedItem: () => ({}) }, querySelector: () => ({}) };
-  const panel = { querySelector: () => form };
-  const main = { focus() {}, querySelector: (selector) =>
-    selector === "[data-panel]" ? panel : { classList: { toggle() {} } } };
+  const main = { querySelector: () => ({}) };
   const nav = { classList: { toggle() {} }, querySelectorAll: () => [] };
   globalThis.document = { getElementById: id => ({ "app-header": header, app: main, "bottom-nav": nav })[id] };
-  globalThis.location = { origin: "https://example.test", pathname: "/", hash: "#/resep/r" };
+  globalThis.location = { origin: "https://example.test", pathname: "/", hash: "#/resep/r",
+    replace(hash) { this.hash = hash; } };
   let historyCalls = 0;
   globalThis.history = { back() { historyCalls++; } };
   globalThis.window = { scrollTo() {} };
@@ -133,15 +131,8 @@ test("detail Back uses app history only when the previous entry is an app route"
     }
     assert.equal(historyCalls, 1);
     location.hash = "#/kelola";
-    window.navigation = undefined;
-    globalThis.fetch = async (url) => {
-      assert.equal(url, "/api/admin/session");
-      return Response.json({ error: "Silakan masuk." }, { status: 401 });
-    };
     await renderRoute();
-    assert.match(panel.innerHTML, /Masuk sebagai admin/);
-    back();
-    assert.equal(location.hash, "#/profil");
+    assert.equal(location.hash, "#/login");
   } finally {
     globalThis.fetch = fetchBefore;
   }

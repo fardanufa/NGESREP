@@ -1,4 +1,6 @@
 import { adminRequest } from "../admin.js";
+import { account } from "../account.js";
+import { setFavoriteAccount, withFavoritesLock } from "../favorites.js";
 import { forgetCatalogCache, getCategories, getRecipes } from "../api.js";
 import { catalogPayload, recipeForm, saveRecipe } from "../recipeEditor.js";
 import { esc, imgTag, rupiah, skeletonList, stateBox, retryButton, toast } from "../ui.js";
@@ -79,9 +81,21 @@ export async function beranda(main, _id, signal) {
   const toolbar = main.querySelector("[data-admin-controls]");
   const editor = main.querySelector("[data-editor]");
   const heading = main.querySelector("h1");
-  const request = (path, options) => adminRequest(path, {
-    ...options, signal: AbortSignal.any([signal, AbortSignal.timeout(20000)]),
-  });
+  async function request(path, options) {
+    const send = () => adminRequest(path, {
+      ...options, signal: AbortSignal.any([signal, AbortSignal.timeout(20000)]),
+    });
+    try {
+      return await send();
+    } catch (error) {
+      if (error.status !== 401 || signal.aborted) throw error;
+      await withFavoritesLock(async () => {
+        const user = await account("refresh", signal, {});
+        setFavoriteAccount(user.id);
+      });
+      return send();
+    }
+  }
 
   let recipes;
   let categories = [];
@@ -118,7 +132,7 @@ export async function beranda(main, _id, signal) {
   }
 
   function lockControls() {
-    for (const button of main.querySelectorAll("[data-add], [data-edit], [data-remove], [data-logout]")) {
+    for (const button of main.querySelectorAll("[data-add], [data-edit], [data-remove]")) {
       button.disabled = locked();
     }
   }
@@ -145,8 +159,13 @@ export async function beranda(main, _id, signal) {
     } catch (error) {
       if (signal.aborted) return;
       if (error.status === 401) {
-        clearAdmin();
-        toast("Sesi admin berakhir. Masuk lagi lewat Profil.");
+        if (editor.hidden) clearAdmin();
+        showError(editor.hidden
+          ? "Sesi berakhir. Masuk lagi lewat Profil."
+          : "Draf masih terbuka. Masuk lagi lewat Profil di tab lain, lalu klik Simpan.");
+      } else if (error.status === 403) {
+        if (editor.hidden) clearAdmin();
+        showError(error.message);
       } else {
         showError(error instanceof TypeError || error.name === "TimeoutError"
           ? "Tidak dapat menghubungi layanan admin. Periksa koneksi lalu coba lagi." : error.message);
@@ -214,15 +233,7 @@ export async function beranda(main, _id, signal) {
   toolbar.addEventListener("click", (event) => {
     if (!isAdmin || locked()) return;
     const add = event.target.closest("[data-add]");
-    if (add) return openEditor({}, add);
-    if (event.target.closest("[data-logout]")) {
-      void runAdmin(async () => {
-        await request("session", { method: "DELETE" });
-        if (signal.aborted) return;
-        clearAdmin();
-        toast("Anda sudah keluar dari sesi admin.");
-      });
-    }
+    if (add) openEditor({}, add);
   });
 
   list.addEventListener("click", (event) => {
@@ -296,8 +307,7 @@ export async function beranda(main, _id, signal) {
     await categoryLoad;
     if (signal.aborted) return;
     isAdmin = true;
-    toolbar.innerHTML = `<button type="button" data-add class="${adminButton} bg-primary text-on-primary hover:opacity-90">Tambah Resep</button>
-      <button type="button" data-logout class="${adminButton} bg-surface-container-low hover:bg-surface-container-high">Keluar admin</button>`;
+    toolbar.innerHTML = `<button type="button" data-add class="${adminButton} bg-primary text-on-primary hover:opacity-90">Tambah Resep</button>`;
     draw();
   }).catch(() => { /* Beranda tetap publik dan dapat dipakai luring. */ });
   await Promise.all([load(), categoryLoad, adminLoad]);

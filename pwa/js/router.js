@@ -4,7 +4,6 @@ import { tips } from "./pages/tips.js";
 import { detailTips } from "./pages/detailTips.js";
 import { favorit } from "./pages/favorit.js";
 import { profil } from "./pages/profil.js";
-import { kelola } from "./pages/kelola.js";
 import { login } from "./pages/login.js";
 
 const header = document.getElementById("app-header");
@@ -19,13 +18,12 @@ const ROUTES = [
   { re: /^\/tips\/([^/]+)$/, page: detailTips, title: "Detail Tips", back: "#/tips" },
   { re: /^\/favorit\/?$/, page: favorit, tab: "favorit", title: "Favorit" },
   { re: /^\/profil\/?$/, page: profil, tab: "profil", title: "Profil" },
-  { re: /^\/kelola\/?$/, page: kelola, title: "Masuk admin", back: "#/profil" },
   { re: /^\/login\/?$/, page: login, title: "Masuk / Daftar", back: "#/beranda" },
 ];
 
 function logoHTML() {
   return `<a href="#/beranda" class="flex items-center h-12" aria-label="NGESREP">
-    <img src="images/logo-full.png" alt="NGESREP" class="h-12 w-auto object-contain max-w-[160px]"
+    <img src="icons/icon-192.png" alt="NGESREP" class="h-10 w-10 object-contain"
       onerror="this.onerror=null;this.replaceWith(document.createTextNode('NGESREP'))">
   </a>`;
 }
@@ -73,6 +71,10 @@ export async function renderRoute() {
   const controller = new AbortController();
   visit = controller;
   const path = (location.hash || "#/beranda").replace(/^#/, "");
+  if (/^\/kelola\/?$/.test(path)) {
+    location.replace("#/login");
+    return;
+  }
 
   let matched = null;
   for (const route of ROUTES) {
